@@ -2,6 +2,7 @@
 #define FIREBALL_H
 
 #include "raylib.h"
+#include "../header/player.h"
 
 // -----------------------------------------------------------------------------
 // 불덩이 구조체
@@ -27,7 +28,8 @@ void SpawnFireball(
 );
 
 void UpdateFireballs(
-    float deltaTime
+    float deltaTime,
+    Body* body
 );
 
 void DrawFireballs(void);

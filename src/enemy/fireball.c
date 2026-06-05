@@ -1,4 +1,6 @@
-#include "fireball.h"
+#include <stdio.h>
+#include "../../header/fireball.h"
+#include "../../header/main.h"
 
 #include "raylib.h"
 #include "raymath.h"
@@ -24,7 +26,7 @@ void InitFireballs(void)
 // -----------------------------------------------------------------------------
 // 외부 맵 데이터 사용
 // -----------------------------------------------------------------------------
-extern int myMap[16][16];
+extern int myNewMap[MAP_HEIGHT][MAP_WIDTH];
 
 extern Vector3 mapPosition;
 
@@ -33,40 +35,24 @@ extern Vector3 mapPosition;
 // -----------------------------------------------------------------------------
 static bool CheckFireballWallCollision(Vector3 pos)
 {
-    int cellX =
-        (int)(
-            pos.x
-            -
-            mapPosition.x
-            +
-            0.5f
-        );
-
-    int cellY =
-        (int)(
-            pos.z
-            -
-            mapPosition.z
-            +
-            0.5f
-        );
-
+    int cellX = (int)((pos.x - mapPosition.x) / WORLD_SCALE);
+    int cellY = (int)((pos.z - mapPosition.z) / WORLD_SCALE);
     // 맵 밖
     if (
         cellX < 0
         ||
-        cellX >= 16
+        cellX >= MAP_WIDTH
         ||
         cellY < 0
         ||
-        cellY >= 16
+        cellY >= MAP_HEIGHT
     )
     {
         return true;
     }
 
     // 벽 충돌
-    if (myMap[cellY][cellX] == 1)
+    if (myNewMap[cellY][cellX] == 1)
     {
         return true;
     }
@@ -155,11 +141,22 @@ void SpawnFireball(
         }
     }
 }
+static bool CHeckFireBallHitPlayer(Vector3 fireballPos, Body* target){
+    Vector2 bullet2D = { fireballPos.x, fireballPos.z };
+    Vector2 enemy2D = { target->position.x, target->position.z };
+
+    if (CheckCollisionCircles(bullet2D, 0.1f, enemy2D, 0.5f)) {
+        if (fireballPos.y >= 0.0f && fireballPos.y <= 2.5f) {
+            return true;
+        }
+    }
+    return false;
+}
 
 // -----------------------------------------------------------------------------
 // 불덩이 업데이트
 // -----------------------------------------------------------------------------
-void UpdateFireballs(float deltaTime)
+void UpdateFireballs(float deltaTime, Body* player)
 {
     for (int i = 0; i < MAX_FIREBALLS; i++)
     {
@@ -196,6 +193,12 @@ void UpdateFireballs(float deltaTime)
         {
             fireballs[i].active = false;
         }
+	if (CHeckFireBallHitPlayer(fireballs[i].position, player)) {
+	    printf("player got hit");
+	    player->health -= 34;
+	    fireballs[i].active = false; 
+	    continue;
+	}
     }
 }
 
