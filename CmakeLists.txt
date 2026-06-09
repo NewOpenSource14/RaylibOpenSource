@@ -17,6 +17,9 @@ add_executable(${PROJECT_NAME}
     src/mapDesign.c
     src/userInterface.c
     src/shootingLogic.c
+
+    enemy/enemy.c
+    enemy/fireball.c
 )
 
 if(WIN32)
