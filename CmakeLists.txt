@@ -13,8 +13,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(raylib)
 
 add_executable(${PROJECT_NAME}
-    main.c
-    map.c
+    src/main.c
+    src/mapDesign.c
     src/userInterface.c
     src/shootingLogic.c
 )
