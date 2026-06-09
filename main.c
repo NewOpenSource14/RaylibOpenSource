@@ -1,96 +1,70 @@
 #include "raylib.h"
 #include "raymath.h"
-#include <math.h> // sinf, cosf, fabsf 등을 위한 헤더
+#include "game.h"
+#include <math.h>
 
-//----------------------------------------------------------------------------------
-// 물리 엔진 상수 정의 (차분한 이동을 위해 속도 튜닝 완료)
-//----------------------------------------------------------------------------------
-#define GRAVITY         32.0f
-#define MAX_SPEED       12.0f  
-#define CROUCH_SPEED     6.0f
-#define JUMP_FORCE      12.0f
-#define MAX_ACCEL       90.0f  
-#define FRICTION         0.86f
-#define AIR_DRAG         0.98f
-#define CONTROL          15.0f
-#define CROUCH_HEIGHT    0.0f
-#define STAND_HEIGHT     1.2f  
-#define BOTTOM_HEIGHT    0.6f
+static Vector3 mapPosition = {
+    -((MAP_WIDTH * WORLD_SCALE) / 2.0f),
+    0.0f,
+    -((MAP_HEIGHT * WORLD_SCALE) / 2.0f)
+};
 
-// 맵 기믹을 위한 타일 상수 정의
-#define TILE_EMPTY   0  
-#define TILE_WALL    1  
-#define TILE_ENEMY   2  
-#define TILE_ITEM    3  
-#define TILE_SHUTTER 4  
-#define TILE_GOAL    9  
-
-#define NORMALIZE_INPUT  0
-
-typedef struct {
-    Vector3 position;
-    Vector3 velocity;
-    Vector3 dir;
-    bool isGrounded;
-} Body;
-
-// ----------------------------------------------------------------------------------
-// 수제 미로 맵 크기 정의 및 공간 배율 세팅
-// ----------------------------------------------------------------------------------
-#define MAP_WIDTH  30  
-#define MAP_HEIGHT 20  
-#define WORLD_SCALE 2.5f 
-
-extern int myNewMap[MAP_HEIGHT][MAP_WIDTH];
-
-static Vector3 mapPosition = { -((MAP_WIDTH * WORLD_SCALE) / 2.0f), 0.0f, -((MAP_HEIGHT * WORLD_SCALE) / 2.0f) };
-
-// 전역 변수들
 static Body player = { 0 };
-static Vector2 lookRotation = { 0 }; 
+static Vector2 lookRotation = { 0 };
 static float headTimer = 0.0f;
 static float walkLerp = 0.0f;
 static float headLerp = STAND_HEIGHT;
 static Vector2 lean = { 0 };
 
-// 💡 셔터 자동 개폐 및 1.5초 타이머 제어 변수들
-static bool isShutterOpen = false;    
-static float shutterOpenTimer = 0.0f; 
-static float shutterHoldTimer = 0.0f; // 💡 완전히 열린 후 버틴 시간을 재는 타이머
+static bool isShutterOpen = false;
+static float shutterOpenTimer = 0.0f;
+static float shutterHoldTimer = 0.0f;
 
-// 함수 선언
+static bool IsSolidTile(int tileType);
+static bool IsDoorSideTile(int tileType);
+static int GetMapTileSafe(int x, int y);
+static bool IsOpenTileForWallFace(int tileType);
+
 static bool CheckMapCollision(Vector3 testPos, float radius);
 static void UpdateBody(Body *body, float rot, char side, char forward, bool jumpPressed, bool crouchHold);
 static void UpdateCameraFPS(Camera *camera);
 
-//----------------------------------------------------------------------------------
-// 메인 프로그램
-//----------------------------------------------------------------------------------
+static void DrawWolfWall(int x, int y, Vector3 tilePos, Color baseColor, Color panelColor, Color trimColor);
+static void DrawDoorTile(int x, int y, Vector3 tilePos);
+static void DrawDesk(Vector3 tilePos);
+static void DrawTable(Vector3 tilePos);
+static void DrawBarrel(Vector3 tilePos);
+static void DrawLamp(Vector3 tilePos);
+static void DrawMiniMap(void);
+static void DrawUI(void);
+
 int main(void)
 {
     const int screenWidth = 1920;
     const int screenHeight = 1080;
-    InitWindow(screenWidth, screenHeight, "raylib - 3D Maze Auto-Close Shutter Game");
 
-    player.position = (Vector3){ mapPosition.x + (1.5f * WORLD_SCALE), 0.0f, mapPosition.z + (1.5f * WORLD_SCALE) }; 
+    InitWindow(screenWidth, screenHeight, "Wolfenstein Style Map Design");
+
+    player.position = (Vector3){
+        mapPosition.x + (14.5f * WORLD_SCALE),
+        0.0f,
+        mapPosition.z + (16.5f * WORLD_SCALE)
+    };
 
     Camera camera = { 0 };
-    camera.fovy = 85.0f; 
+    camera.fovy = 85.0f;
     camera.projection = CAMERA_PERSPECTIVE;
-    
-    DisableCursor(); 
+
+    DisableCursor();
     SetTargetFPS(60);
 
-    while (!WindowShouldClose())    
+    while (!WindowShouldClose())
     {
-        // -------------------------------------------------------------------------
-        // 1. 입력 및 물리 엔진 업데이트
-        // -------------------------------------------------------------------------
         float delta = GetFrameTime();
 
         Vector2 mouseDelta = GetMouseDelta();
-        float hybridSensitivity = 0.0007f; 
-        
+        float hybridSensitivity = 0.0007f;
+
         lookRotation.x -= mouseDelta.x * hybridSensitivity;
         lookRotation.y -= mouseDelta.y * hybridSensitivity;
         lookRotation.y = Clamp(lookRotation.y, -89.0f * DEG2RAD, 89.0f * DEG2RAD);
@@ -101,233 +75,589 @@ int main(void)
 
         UpdateBody(&player, lookRotation.x, sideway, forward, IsKeyPressed(KEY_SPACE), crouching);
 
-        // -------------------------------------------------------------------------
-        // 2. 다이내믹 카메라 연출
-        // -------------------------------------------------------------------------
         headLerp = Lerp(headLerp, (crouching ? CROUCH_HEIGHT : STAND_HEIGHT), 20.0f * delta);
-        
+
         camera.position = (Vector3){
             player.position.x,
             player.position.y + (BOTTOM_HEIGHT + headLerp),
-            player.position.z,
+            player.position.z
         };
 
         if (player.isGrounded && ((forward != 0) || (sideway != 0)))
         {
             headTimer += delta * 3.0f;
             walkLerp = Lerp(walkLerp, 1.0f, 10.0f * delta);
-            camera.fovy = Lerp(camera.fovy, 80.0f, 5.0f * delta); 
+            camera.fovy = Lerp(camera.fovy, 80.0f, 5.0f * delta);
         }
         else
         {
             walkLerp = Lerp(walkLerp, 0.0f, 10.0f * delta);
-            camera.fovy = Lerp(camera.fovy, 85.0f, 5.0f * delta); 
+            camera.fovy = Lerp(camera.fovy, 85.0f, 5.0f * delta);
         }
 
-        lean.x = Lerp(lean.x, sideway * 0.02f, 10.0f * delta); 
+        lean.x = Lerp(lean.x, sideway * 0.02f, 10.0f * delta);
         lean.y = Lerp(lean.y, forward * 0.015f, 10.0f * delta);
 
-        UpdateCameraFPS(&camera); 
+        UpdateCameraFPS(&camera);
 
-        // -------------------------------------------------------------------------
-        // 🌟 [수정] 방화 셔터 상호작용 및 1.5초 자동 닫힘 타이머 로직
-        // -------------------------------------------------------------------------
-        if (IsKeyPressed(KEY_E)) 
+        if (IsKeyPressed(KEY_E))
         {
             isShutterOpen = !isShutterOpen;
-            if (isShutterOpen) shutterHoldTimer = 0.0f; // 열기 시작할 때 대기 시간 초기화
+
+            if (isShutterOpen)
+            {
+                shutterHoldTimer = 0.0f;
+            }
         }
 
-        if (isShutterOpen) 
+        if (isShutterOpen)
         {
-            // 문이 위로 열리는 애니메이션 (배율 공간에 맞춰 속도 1.5f 적용)
-            if (shutterOpenTimer < 1.0f) 
+            if (shutterOpenTimer < 1.0f)
             {
                 shutterOpenTimer += delta * 1.5f;
-                if (shutterOpenTimer > 1.0f) shutterOpenTimer = 1.0f;
-            }
-            // 💡 문이 완벽히 끝까지 열렸다면(shutterOpenTimer == 1.0f), 1.5초 동안 버팁니다.
-            else 
-            {
-                shutterHoldTimer += delta;
-                if (shutterHoldTimer >= 1.5f) 
+
+                if (shutterOpenTimer > 1.0f)
                 {
-                    isShutterOpen = false; // 1.5초가 지나면 자동으로 닫힘 상태로 강제 전환!
+                    shutterOpenTimer = 1.0f;
                 }
             }
-        } 
-        else 
+            else
+            {
+                shutterHoldTimer += delta;
+
+                if (shutterHoldTimer >= 1.5f)
+                {
+                    isShutterOpen = false;
+                }
+            }
+        }
+        else
         {
-            // 문이 아래로 닫히는 애니메이션
-            if (shutterOpenTimer > 0.0f) 
+            if (shutterOpenTimer > 0.0f)
             {
                 shutterOpenTimer -= delta * 1.5f;
-                if (shutterOpenTimer < 0.0f) shutterOpenTimer = 0.0f;
+
+                if (shutterOpenTimer < 0.0f)
+                {
+                    shutterOpenTimer = 0.0f;
+                }
             }
         }
 
-        // -------------------------------------------------------------------------
-        // 3. 화면 그리기
-        // -------------------------------------------------------------------------
         BeginDrawing();
 
-            ClearBackground(RAYWHITE); 
+            ClearBackground(BLACK);
 
             BeginMode3D(camera);
-                
-                // 바닥 격자판
-                DrawPlane((Vector3){ 0.0f, 0.0f, 0.0f }, (Vector2){ MAP_WIDTH * WORLD_SCALE, MAP_HEIGHT * WORLD_SCALE }, DARKGRAY);
 
-                // 3D 오브젝트 배치 및 렌더링
-                for (int y = 0; y < MAP_HEIGHT; y++) 
+                DrawPlane(
+                    (Vector3){ 0.0f, 0.0f, 0.0f },
+                    (Vector2){ MAP_WIDTH * WORLD_SCALE, MAP_HEIGHT * WORLD_SCALE },
+                    (Color){ 42, 42, 42, 255 }
+                );
+
+                for (int y = 0; y < MAP_HEIGHT; y++)
                 {
-                    for (int x = 0; x < MAP_WIDTH; x++) 
+                    for (int x = 0; x < MAP_WIDTH; x++)
                     {
-                        Vector3 wallPos = { 
-                            mapPosition.x + x * WORLD_SCALE + (WORLD_SCALE / 2.0f), 
-                            mapPosition.y, 
-                            mapPosition.z + y * WORLD_SCALE + (WORLD_SCALE / 2.0f) 
+                        Vector3 tilePos = {
+                            mapPosition.x + x * WORLD_SCALE + (WORLD_SCALE / 2.0f),
+                            mapPosition.y,
+                            mapPosition.z + y * WORLD_SCALE + (WORLD_SCALE / 2.0f)
                         };
 
                         switch (myNewMap[y][x])
                         {
-                            case TILE_WALL: 
-                                wallPos.y = mapPosition.y + (3.5f * WORLD_SCALE / 2.0f); 
-                                DrawCube(wallPos, WORLD_SCALE, 3.5f * WORLD_SCALE, WORLD_SCALE, GRAY);              
-                                DrawCubeWires(wallPos, WORLD_SCALE, 3.5f * WORLD_SCALE, WORLD_SCALE, DARKGRAY);     
+                            case TILE_WALL:
+                            {
+                                DrawWolfWall(
+                                    x,
+                                    y,
+                                    tilePos,
+                                    (Color){ 88, 88, 92, 255 },
+                                    (Color){ 62, 62, 68, 255 },
+                                    BLACK
+                                );
+
                                 break;
+                            }
 
-                            case TILE_ENEMY: 
-                                wallPos.y = mapPosition.y + 1.5f;
-                                DrawCylinder(wallPos, 0.5f, 0.5f, 3.0f, 8, PURPLE);
-                                DrawCylinderWires(wallPos, 0.5f, 0.5f, 3.0f, 8, DARKPURPLE);
+                            case TILE_WALL_BLUE:
+                            {
+                                DrawWolfWall(
+                                    x,
+                                    y,
+                                    tilePos,
+                                    (Color){ 7, 18, 78, 255 },
+                                    (Color){ 28, 78, 210, 255 },
+                                    BLACK
+                                );
+
                                 break;
+                            }
 
-                            case TILE_ITEM: 
-                                wallPos.y = mapPosition.y + 0.6f;
-                                DrawCube(wallPos, 0.8f, 0.8f, 0.8f, YELLOW);              
-                                DrawCubeWires(wallPos, 0.8f, 0.8f, 0.8f, GOLD);     
+                            case TILE_WALL_DECOR:
+                            {
+                                DrawWolfWall(
+                                    x,
+                                    y,
+                                    tilePos,
+                                    (Color){ 88, 88, 92, 255 },
+                                    (Color){ 145, 42, 35, 255 },
+                                    BLACK
+                                );
+
                                 break;
+                            }
 
-                            case TILE_SHUTTER: 
-                                wallPos.y = mapPosition.y + (3.5f * WORLD_SCALE / 2.0f) + (shutterOpenTimer * 4.5f * WORLD_SCALE); 
-                                
-                                float shutterWidthX = WORLD_SCALE * 0.96f;
-                                float shutterDepthZ = 0.25f;
+                            case TILE_WALL_FLAG:
+                            {
+                                DrawWolfWall(
+                                    x,
+                                    y,
+                                    tilePos,
+                                    (Color){ 76, 76, 82, 255 },
+                                    (Color){ 190, 25, 25, 255 },
+                                    BLACK
+                                );
 
-                                if (y > 0 && y < MAP_HEIGHT - 1) {
-                                    if (myNewMap[y-1][x] == TILE_WALL || myNewMap[y+1][x] == TILE_WALL) {
-                                        shutterWidthX = 0.25f; 
-                                        shutterDepthZ = WORLD_SCALE * 0.96f; 
-                                    }
-                                }
-
-                                // 방화 셔터 본체 그리기
-                                DrawCube(wallPos, shutterWidthX, 3.5f * WORLD_SCALE, shutterDepthZ, BROWN);            
-                                DrawCubeWires(wallPos, shutterWidthX, 3.5f * WORLD_SCALE, shutterDepthZ, DARKBROWN);
-
-                                // 💡 [수정] 문고리(DrawSphere) 코드 무조건 없앰! 깔끔한 평면 장벽이 되었습니다.
                                 break;
+                            }
 
-                            case TILE_GOAL: 
-                                wallPos.y = mapPosition.y + 0.05f;
-                                DrawCube(wallPos, WORLD_SCALE, 0.1f, WORLD_SCALE, LIME);              
+                            case TILE_PORTRAIT:
+                            {
+                                DrawWolfWall(
+                                    x,
+                                    y,
+                                    tilePos,
+                                    (Color){ 80, 80, 85, 255 },
+                                    (Color){ 150, 105, 50, 255 },
+                                    BLACK
+                                );
+
                                 break;
+                            }
+
+                            case TILE_WALL_DARK:
+                            {
+                                DrawWolfWall(
+                                    x,
+                                    y,
+                                    tilePos,
+                                    (Color){ 28, 28, 32, 255 },
+                                    (Color){ 76, 76, 82, 255 },
+                                    BLACK
+                                );
+
+                                break;
+                            }
+
+                            case TILE_COLUMN_CYAN:
+                            {
+                                tilePos.y = mapPosition.y + (3.5f * WORLD_SCALE / 2.0f);
+
+                                DrawCube(
+                                    tilePos,
+                                    WORLD_SCALE * 0.62f,
+                                    3.5f * WORLD_SCALE,
+                                    WORLD_SCALE * 0.62f,
+                                    (Color){ 0, 185, 210, 255 }
+                                );
+
+                                DrawCubeWires(
+                                    tilePos,
+                                    WORLD_SCALE * 0.62f,
+                                    3.5f * WORLD_SCALE,
+                                    WORLD_SCALE * 0.62f,
+                                    DARKBLUE
+                                );
+
+                                break;
+                            }
+
+                            case TILE_PILLAR:
+                            {
+                                tilePos.y = mapPosition.y + (3.5f * WORLD_SCALE / 2.0f);
+
+                                DrawCube(
+                                    tilePos,
+                                    WORLD_SCALE * 0.72f,
+                                    3.5f * WORLD_SCALE,
+                                    WORLD_SCALE * 0.72f,
+                                    (Color){ 75, 75, 78, 255 }
+                                );
+
+                                DrawCubeWires(
+                                    tilePos,
+                                    WORLD_SCALE * 0.72f,
+                                    3.5f * WORLD_SCALE,
+                                    WORLD_SCALE * 0.72f,
+                                    BLACK
+                                );
+
+                                break;
+                            }
+
+                            case TILE_COVER:
+                            {
+                                tilePos.y = mapPosition.y + (1.2f * WORLD_SCALE / 2.0f);
+
+                                DrawCube(
+                                    tilePos,
+                                    WORLD_SCALE,
+                                    1.2f * WORLD_SCALE,
+                                    WORLD_SCALE,
+                                    BROWN
+                                );
+
+                                DrawCubeWires(
+                                    tilePos,
+                                    WORLD_SCALE,
+                                    1.2f * WORLD_SCALE,
+                                    WORLD_SCALE,
+                                    DARKBROWN
+                                );
+
+                                break;
+                            }
+
+                            case TILE_DESK:
+                            {
+                                DrawDesk(tilePos);
+                                break;
+                            }
+
+                            case TILE_TABLE:
+                            {
+                                DrawTable(tilePos);
+                                break;
+                            }
+
+                            case TILE_BARREL:
+                            {
+                                DrawBarrel(tilePos);
+                                break;
+                            }
+
+                            case TILE_LAMP:
+                            {
+                                DrawLamp(tilePos);
+                                break;
+                            }
+
+                            case TILE_SHUTTER:
+                            {
+                                DrawDoorTile(x, y, tilePos);
+                                break;
+                            }
+
+                            case TILE_EXIT_SIGN:
+                            {
+                                DrawWolfWall(
+                                    x,
+                                    y,
+                                    tilePos,
+                                    (Color){ 30, 30, 34, 255 },
+                                    LIME,
+                                    GREEN
+                                );
+
+                                break;
+                            }
+
+                            case TILE_GOAL:
+                            {
+                                tilePos.y = mapPosition.y + 0.05f;
+
+                                DrawCube(tilePos, WORLD_SCALE, 0.1f, WORLD_SCALE, LIME);
+                                DrawCubeWires(tilePos, WORLD_SCALE, 0.1f, WORLD_SCALE, GREEN);
+
+                                break;
+                            }
                         }
                     }
                 }
 
             EndMode3D();
 
-            // FHD 미니맵 레이더 렌더링
-            int scale = 12; 
-            int minimapX = GetScreenWidth() - (MAP_WIDTH * scale) - 30;
-            int minimapY = 30;
-
-            DrawRectangle(minimapX, minimapY, MAP_WIDTH * scale, MAP_HEIGHT * scale, Fade(BLACK, 0.5f));
-            
-            for (int y = 0; y < MAP_HEIGHT; y++) {
-                for (int x = 0; x < MAP_WIDTH; x++) {
-                    int tile = myNewMap[y][x];
-                    if (tile == TILE_WALL) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, DARKGRAY);
-                    else if (tile == TILE_SHUTTER) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, BROWN);
-                    else if (tile == TILE_ITEM) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, YELLOW);
-                    else if (tile == TILE_ENEMY) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, PURPLE); 
-                    else if (tile == TILE_GOAL) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, LIME);   
-                }
-            }
-            DrawRectangleLines(minimapX, minimapY, MAP_WIDTH * scale, MAP_HEIGHT * scale, GREEN); 
-
-            int playerCellX = (int)((player.position.x - mapPosition.x) / WORLD_SCALE);
-            int playerCellY = (int)((player.position.z - mapPosition.z) / WORLD_SCALE);
-            if (playerCellX >= 0 && playerCellX < MAP_WIDTH && playerCellY >= 0 && playerCellY < MAP_HEIGHT) {
-                DrawRectangle(minimapX + playerCellX * scale, minimapY + playerCellY * scale, scale, scale, GREEN);
-            }
-
-            // 가이드 UI
-            DrawRectangle(5, 5, 480, 110, Fade(SKYBLUE, 0.5f));
-            DrawRectangleLines(5, 5, 480, 110, BLUE);
-            DrawText("Controls (Full Mouse FPS Mode):", 15, 15, 12, BLACK);
-            DrawText("- Move keys: W/S (Forward/Backward), A/D (Strafe Left/Right)", 15, 32, 12, BLACK);
-            DrawText("- Mouse: Look EVERYWHERE (Up, Down, Left, Right)", 15, 49, 12, BLACK);
-            DrawText("- Interaction: Press [E] key to Open Shutters!", 15, 66, 12, MAROON);
-            DrawText("🌟 System: Shutters will AUTO-CLOSE after 1.5 seconds!", 15, 83, 12, MAROON);
-            if (isShutterOpen && shutterOpenTimer >= 1.0f) {
-                DrawText(TextFormat("Closing in: %.1f sec", 1.5f - shutterHoldTimer), 15, 100, 12, RED);
-            }
-
-            DrawFPS(10, 10);
+            DrawMiniMap();
+            DrawUI();
 
         EndDrawing();
     }
 
-    CloseWindow();                  
+    CloseWindow();
+
     return 0;
 }
 
-// =================================================================================
-// 충돌 검사 전용 함수
-// =================================================================================
+static bool IsSolidTile(int tileType)
+{
+    if (tileType == TILE_WALL) return true;
+    if (tileType == TILE_WALL_DECOR) return true;
+    if (tileType == TILE_WALL_DARK) return true;
+    if (tileType == TILE_PILLAR) return true;
+    if (tileType == TILE_COVER) return true;
+    if (tileType == TILE_EXIT_SIGN) return true;
+    if (tileType == TILE_WALL_BLUE) return true;
+    if (tileType == TILE_COLUMN_CYAN) return true;
+    if (tileType == TILE_DESK) return true;
+    if (tileType == TILE_TABLE) return true;
+    if (tileType == TILE_WALL_FLAG) return true;
+    if (tileType == TILE_BARREL) return true;
+    if (tileType == TILE_LAMP) return true;
+    if (tileType == TILE_PORTRAIT) return true;
+    if (tileType == TILE_SHUTTER && shutterOpenTimer < 0.8f) return true;
+
+    return false;
+}
+
+static bool IsDoorSideTile(int tileType)
+{
+    if (tileType == TILE_WALL) return true;
+    if (tileType == TILE_WALL_DECOR) return true;
+    if (tileType == TILE_WALL_DARK) return true;
+    if (tileType == TILE_WALL_BLUE) return true;
+    if (tileType == TILE_EXIT_SIGN) return true;
+    if (tileType == TILE_WALL_FLAG) return true;
+    if (tileType == TILE_PORTRAIT) return true;
+
+    return false;
+}
+
+static int GetMapTileSafe(int x, int y)
+{
+    if (x < 0 || x >= MAP_WIDTH || y < 0 || y >= MAP_HEIGHT)
+    {
+        return TILE_WALL;
+    }
+
+    return myNewMap[y][x];
+}
+
+static bool IsOpenTileForWallFace(int tileType)
+{
+    if (tileType == TILE_EMPTY) return true;
+    if (tileType == TILE_GOAL) return true;
+    if (tileType == TILE_SHUTTER) return true;
+    if (tileType == TILE_DESK) return true;
+    if (tileType == TILE_TABLE) return true;
+    if (tileType == TILE_COVER) return true;
+    if (tileType == TILE_BARREL) return true;
+    if (tileType == TILE_LAMP) return true;
+
+    return false;
+}
+
+static void DrawWolfWall(int x, int y, Vector3 tilePos, Color baseColor, Color panelColor, Color trimColor)
+{
+    float wallHeight = 3.5f * WORLD_SCALE;
+    float panelHeight = 2.55f * WORLD_SCALE;
+    float panelWidth = 0.82f * WORLD_SCALE;
+    float panelThickness = 0.06f;
+
+    tilePos.y = mapPosition.y + wallHeight / 2.0f;
+
+    DrawCube(tilePos, WORLD_SCALE, wallHeight, WORLD_SCALE, baseColor);
+    DrawCubeWires(tilePos, WORLD_SCALE, wallHeight, WORLD_SCALE, trimColor);
+
+    if (IsOpenTileForWallFace(GetMapTileSafe(x, y - 1)))
+    {
+        Vector3 panelPos = tilePos;
+        panelPos.z -= WORLD_SCALE * 0.505f;
+        panelPos.y = mapPosition.y + 2.0f * WORLD_SCALE;
+
+        DrawCube(panelPos, panelWidth, panelHeight, panelThickness, panelColor);
+        DrawCubeWires(panelPos, panelWidth, panelHeight, panelThickness, trimColor);
+    }
+
+    if (IsOpenTileForWallFace(GetMapTileSafe(x, y + 1)))
+    {
+        Vector3 panelPos = tilePos;
+        panelPos.z += WORLD_SCALE * 0.505f;
+        panelPos.y = mapPosition.y + 2.0f * WORLD_SCALE;
+
+        DrawCube(panelPos, panelWidth, panelHeight, panelThickness, panelColor);
+        DrawCubeWires(panelPos, panelWidth, panelHeight, panelThickness, trimColor);
+    }
+
+    if (IsOpenTileForWallFace(GetMapTileSafe(x - 1, y)))
+    {
+        Vector3 panelPos = tilePos;
+        panelPos.x -= WORLD_SCALE * 0.505f;
+        panelPos.y = mapPosition.y + 2.0f * WORLD_SCALE;
+
+        DrawCube(panelPos, panelThickness, panelHeight, panelWidth, panelColor);
+        DrawCubeWires(panelPos, panelThickness, panelHeight, panelWidth, trimColor);
+    }
+
+    if (IsOpenTileForWallFace(GetMapTileSafe(x + 1, y)))
+    {
+        Vector3 panelPos = tilePos;
+        panelPos.x += WORLD_SCALE * 0.505f;
+        panelPos.y = mapPosition.y + 2.0f * WORLD_SCALE;
+
+        DrawCube(panelPos, panelThickness, panelHeight, panelWidth, panelColor);
+        DrawCubeWires(panelPos, panelThickness, panelHeight, panelWidth, trimColor);
+    }
+
+    Vector3 bottomBand = tilePos;
+    bottomBand.y = mapPosition.y + 0.18f * WORLD_SCALE;
+
+    DrawCube(bottomBand, WORLD_SCALE * 1.02f, 0.12f * WORLD_SCALE, WORLD_SCALE * 1.02f, trimColor);
+
+    Vector3 topBand = tilePos;
+    topBand.y = mapPosition.y + 3.32f * WORLD_SCALE;
+
+    DrawCube(topBand, WORLD_SCALE * 1.02f, 0.12f * WORLD_SCALE, WORLD_SCALE * 1.02f, trimColor);
+}
+
+static void DrawDoorTile(int x, int y, Vector3 tilePos)
+{
+    tilePos.y = mapPosition.y
+        + (3.5f * WORLD_SCALE / 2.0f)
+        + (shutterOpenTimer * 4.5f * WORLD_SCALE);
+
+    float shutterWidthX = WORLD_SCALE * 0.96f;
+    float shutterDepthZ = 0.25f;
+
+    if (y > 0 && y < MAP_HEIGHT - 1)
+    {
+        if (IsDoorSideTile(myNewMap[y - 1][x]) || IsDoorSideTile(myNewMap[y + 1][x]))
+        {
+            shutterWidthX = 0.25f;
+            shutterDepthZ = WORLD_SCALE * 0.96f;
+        }
+    }
+
+    DrawCube(tilePos, shutterWidthX, 3.5f * WORLD_SCALE, shutterDepthZ, (Color){ 115, 72, 35, 255 });
+    DrawCubeWires(tilePos, shutterWidthX, 3.5f * WORLD_SCALE, shutterDepthZ, DARKBROWN);
+
+    Vector3 stripePos = tilePos;
+    stripePos.y = tilePos.y + 0.5f * WORLD_SCALE;
+
+    DrawCube(stripePos, shutterWidthX * 1.02f, 0.12f * WORLD_SCALE, shutterDepthZ * 1.02f, BLACK);
+}
+
+static void DrawDesk(Vector3 tilePos)
+{
+    Vector3 topPos = tilePos;
+    topPos.y = mapPosition.y + 1.0f;
+
+    DrawCube(topPos, WORLD_SCALE * 0.95f, 0.18f * WORLD_SCALE, WORLD_SCALE * 0.58f, BROWN);
+    DrawCubeWires(topPos, WORLD_SCALE * 0.95f, 0.18f * WORLD_SCALE, WORLD_SCALE * 0.58f, DARKBROWN);
+
+    Vector3 leg1 = { tilePos.x - 0.70f, mapPosition.y + 0.45f, tilePos.z - 0.35f };
+    Vector3 leg2 = { tilePos.x + 0.70f, mapPosition.y + 0.45f, tilePos.z - 0.35f };
+    Vector3 leg3 = { tilePos.x - 0.70f, mapPosition.y + 0.45f, tilePos.z + 0.35f };
+    Vector3 leg4 = { tilePos.x + 0.70f, mapPosition.y + 0.45f, tilePos.z + 0.35f };
+
+    DrawCube(leg1, 0.12f * WORLD_SCALE, 0.8f * WORLD_SCALE, 0.12f * WORLD_SCALE, DARKBROWN);
+    DrawCube(leg2, 0.12f * WORLD_SCALE, 0.8f * WORLD_SCALE, 0.12f * WORLD_SCALE, DARKBROWN);
+    DrawCube(leg3, 0.12f * WORLD_SCALE, 0.8f * WORLD_SCALE, 0.12f * WORLD_SCALE, DARKBROWN);
+    DrawCube(leg4, 0.12f * WORLD_SCALE, 0.8f * WORLD_SCALE, 0.12f * WORLD_SCALE, DARKBROWN);
+}
+
+static void DrawTable(Vector3 tilePos)
+{
+    Vector3 topPos = tilePos;
+    topPos.y = mapPosition.y + 1.0f;
+
+    DrawCube(topPos, WORLD_SCALE * 1.25f, 0.2f * WORLD_SCALE, WORLD_SCALE * 0.95f, DARKBROWN);
+    DrawCubeWires(topPos, WORLD_SCALE * 1.25f, 0.2f * WORLD_SCALE, WORLD_SCALE * 0.95f, BLACK);
+
+    Vector3 basePos = tilePos;
+    basePos.y = mapPosition.y + 0.45f;
+
+    DrawCube(basePos, WORLD_SCALE * 0.28f, 0.8f * WORLD_SCALE, WORLD_SCALE * 0.28f, BROWN);
+    DrawCubeWires(basePos, WORLD_SCALE * 0.28f, 0.8f * WORLD_SCALE, WORLD_SCALE * 0.28f, DARKBROWN);
+}
+
+static void DrawBarrel(Vector3 tilePos)
+{
+    tilePos.y = mapPosition.y + 0.8f;
+
+    DrawCylinder(tilePos, 0.38f * WORLD_SCALE, 0.38f * WORLD_SCALE, 1.35f * WORLD_SCALE, 16, DARKGREEN);
+    DrawCylinderWires(tilePos, 0.38f * WORLD_SCALE, 0.38f * WORLD_SCALE, 1.35f * WORLD_SCALE, 16, BLACK);
+
+    Vector3 band = tilePos;
+    band.y += 0.25f * WORLD_SCALE;
+    DrawCylinder(band, 0.40f * WORLD_SCALE, 0.40f * WORLD_SCALE, 0.08f * WORLD_SCALE, 16, BLACK);
+}
+
+static void DrawLamp(Vector3 tilePos)
+{
+    Vector3 basePos = tilePos;
+    basePos.y = mapPosition.y + 0.35f;
+
+    DrawCylinder(basePos, 0.15f * WORLD_SCALE, 0.15f * WORLD_SCALE, 0.7f * WORLD_SCALE, 12, DARKGRAY);
+
+    Vector3 polePos = tilePos;
+    polePos.y = mapPosition.y + 1.2f;
+
+    DrawCylinder(polePos, 0.07f * WORLD_SCALE, 0.07f * WORLD_SCALE, 1.6f * WORLD_SCALE, 12, GRAY);
+
+    Vector3 lightPos = tilePos;
+    lightPos.y = mapPosition.y + 2.2f;
+
+    DrawSphere(lightPos, 0.25f * WORLD_SCALE, YELLOW);
+    DrawSphereWires(lightPos, 0.25f * WORLD_SCALE, 12, 12, GOLD);
+}
+
 static bool CheckMapCollision(Vector3 testPos, float radius)
 {
     Vector2 pos2D = { testPos.x, testPos.z };
+
     int cellX = (int)((testPos.x - mapPosition.x) / WORLD_SCALE);
     int cellY = (int)((testPos.z - mapPosition.z) / WORLD_SCALE);
 
-    for (int y = cellY - 1; y <= cellY + 1; y++) {
-        if (y >= 0 && y < MAP_HEIGHT) {
-            for (int x = cellX - 1; x <= cellX + 1; x++) {
-                if (x >= 0 && x < MAP_WIDTH) {
+    for (int y = cellY - 1; y <= cellY + 1; y++)
+    {
+        if (y >= 0 && y < MAP_HEIGHT)
+        {
+            for (int x = cellX - 1; x <= cellX + 1; x++)
+            {
+                if (x >= 0 && x < MAP_WIDTH)
+                {
                     int tileType = myNewMap[y][x];
 
-                    if (tileType == TILE_WALL || (tileType == TILE_SHUTTER && shutterOpenTimer < 0.8f)) { 
-                        Rectangle wallRect = { 
-                            mapPosition.x + x * WORLD_SCALE, 
-                            mapPosition.z + y * WORLD_SCALE, 
-                            WORLD_SCALE, WORLD_SCALE 
+                    if (IsSolidTile(tileType))
+                    {
+                        Rectangle wallRect = {
+                            mapPosition.x + x * WORLD_SCALE,
+                            mapPosition.z + y * WORLD_SCALE,
+                            WORLD_SCALE,
+                            WORLD_SCALE
                         };
-                        if (CheckCollisionCircleRec(pos2D, radius, wallRect)) {
-                            return true; 
+
+                        if (CheckCollisionCircleRec(pos2D, radius, wallRect))
+                        {
+                            return true;
                         }
                     }
                 }
             }
         }
     }
-    return false; 
+
+    return false;
 }
 
-// =================================================================================
-// 물리 모듈
-// =================================================================================
 static void UpdateBody(Body *body, float rot, char side, char forward, bool jumpPressed, bool crouchHold)
 {
     Vector2 input = (Vector2){ (float)side, (float)-forward };
-    if ((side != 0) && (forward != 0)) input = Vector2Normalize(input);
+
+    if ((side != 0) && (forward != 0))
+    {
+        input = Vector2Normalize(input);
+    }
 
     float delta = GetFrameTime();
 
-    if (!body->isGrounded) body->velocity.y -= GRAVITY * delta;
+    if (!body->isGrounded)
+    {
+        body->velocity.y -= GRAVITY * delta;
+    }
 
     if (body->isGrounded && jumpPressed)
     {
@@ -335,60 +665,73 @@ static void UpdateBody(Body *body, float rot, char side, char forward, bool jump
         body->isGrounded = false;
     }
 
-    Vector3 front = (Vector3){ sinf(rot), 0.f, cosf(rot) };
-    Vector3 right = (Vector3){ cosf(-rot), 0.f, sinf(-rot) };
-    Vector3 desiredDir = (Vector3){ input.x * right.x + input.y * front.x, 0.0f, input.x * right.z + input.y * front.z, };
-    
+    Vector3 front = (Vector3){ sinf(rot), 0.0f, cosf(rot) };
+    Vector3 right = (Vector3){ cosf(-rot), 0.0f, sinf(-rot) };
+
+    Vector3 desiredDir = (Vector3){
+        input.x * right.x + input.y * front.x,
+        0.0f,
+        input.x * right.z + input.y * front.z
+    };
+
     body->dir = Vector3Lerp(body->dir, desiredDir, CONTROL * delta);
 
     float decel = (body->isGrounded ? FRICTION : AIR_DRAG);
     Vector3 hvel = (Vector3){ body->velocity.x * decel, 0.0f, body->velocity.z * decel };
 
     float hvelLength = Vector3Length(hvel);
-    if (hvelLength < (MAX_SPEED * 0.01f)) hvel = (Vector3){ 0 };
+
+    if (hvelLength < (MAX_SPEED * 0.01f))
+    {
+        hvel = (Vector3){ 0 };
+    }
 
     float speed = Vector3DotProduct(hvel, body->dir);
     float maxSpeed = (crouchHold ? CROUCH_SPEED : MAX_SPEED);
-    float accel = Clamp(maxSpeed - speed, 0.f, MAX_ACCEL * delta);
+    float accel = Clamp(maxSpeed - speed, 0.0f, MAX_ACCEL * delta);
+
     hvel.x += body->dir.x * accel;
     hvel.z += body->dir.z * accel;
 
     body->velocity.x = hvel.x;
     body->velocity.z = hvel.z;
 
-    float playerRadius = 0.2f; 
+    float playerRadius = 0.2f;
 
-    // X축 충돌 처리
     Vector3 nextPosX = body->position;
     nextPosX.x += body->velocity.x * delta;
-    if (!CheckMapCollision(nextPosX, playerRadius)) {
-        body->position.x = nextPosX.x; 
-    } else {
-        body->velocity.x = 0.0f;       
+
+    if (!CheckMapCollision(nextPosX, playerRadius))
+    {
+        body->position.x = nextPosX.x;
+    }
+    else
+    {
+        body->velocity.x = 0.0f;
     }
 
-    // Z축 충돌 처리
     Vector3 nextPosZ = body->position;
     nextPosZ.z += body->velocity.z * delta;
-    if (!CheckMapCollision(nextPosZ, playerRadius)) {
-        body->position.z = nextPosZ.z; 
-    } else {
-        body->velocity.z = 0.0f;       
+
+    if (!CheckMapCollision(nextPosZ, playerRadius))
+    {
+        body->position.z = nextPosZ.z;
+    }
+    else
+    {
+        body->velocity.z = 0.0f;
     }
 
-    // Y축 중력 처리
     body->position.y += body->velocity.y * delta;
+
     if (body->position.y <= 0.0f)
     {
         body->position.y = 0.0f;
         body->velocity.y = 0.0f;
-        body->isGrounded = true; 
+        body->isGrounded = true;
     }
 }
 
-// =================================================================================
-// 카메라 모듈
-// =================================================================================
 static void UpdateCameraFPS(Camera *camera)
 {
     const Vector3 up = (Vector3){ 0.0f, 1.0f, 0.0f };
@@ -397,20 +740,88 @@ static void UpdateCameraFPS(Camera *camera)
     Vector3 yaw = Vector3RotateByAxisAngle(targetOffset, up, lookRotation.x);
     Vector3 right = Vector3Normalize(Vector3CrossProduct(yaw, up));
 
-    float pitchAngle = lookRotation.y - lean.y; 
-    pitchAngle = Clamp(pitchAngle, -89.0f * DEG2RAD, 89.0f * DEG2RAD); 
+    float pitchAngle = lookRotation.y - lean.y;
+    pitchAngle = Clamp(pitchAngle, -89.0f * DEG2RAD, 89.0f * DEG2RAD);
+
     Vector3 pitch = Vector3RotateByAxisAngle(yaw, right, pitchAngle);
 
     float headSin = sinf(headTimer * PI);
     float headCos = cosf(headTimer * PI);
+
     const float stepRotation = 0.01f;
     camera->up = Vector3RotateByAxisAngle(up, pitch, headSin * stepRotation + lean.x);
 
     const float bobSide = 0.05f;
     const float bobUp = 0.08f;
+
     Vector3 bobbing = Vector3Scale(right, headSin * bobSide);
     bobbing.y = fabsf(headCos * bobUp);
 
     camera->position = Vector3Add(camera->position, Vector3Scale(bobbing, walkLerp));
     camera->target = Vector3Add(camera->position, pitch);
 }
+
+static void DrawMiniMap(void)
+{
+    int scale = 12;
+    int minimapX = GetScreenWidth() - (MAP_WIDTH * scale) - 30;
+    int minimapY = 30;
+
+    DrawRectangle(minimapX, minimapY, MAP_WIDTH * scale, MAP_HEIGHT * scale, Fade(BLACK, 0.5f));
+
+    for (int y = 0; y < MAP_HEIGHT; y++)
+    {
+        for (int x = 0; x < MAP_WIDTH; x++)
+        {
+            int tile = myNewMap[y][x];
+
+            if (tile == TILE_WALL) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, DARKGRAY);
+            else if (tile == TILE_SHUTTER) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, BROWN);
+            else if (tile == TILE_WALL_DECOR) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, MAROON);
+            else if (tile == TILE_WALL_DARK) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, BLACK);
+            else if (tile == TILE_GOAL) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, LIME);
+            else if (tile == TILE_PILLAR) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, DARKGRAY);
+            else if (tile == TILE_COVER) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, BROWN);
+            else if (tile == TILE_EXIT_SIGN) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, GREEN);
+            else if (tile == TILE_WALL_BLUE) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, BLUE);
+            else if (tile == TILE_COLUMN_CYAN) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, SKYBLUE);
+            else if (tile == TILE_DESK) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, BROWN);
+            else if (tile == TILE_TABLE) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, DARKBROWN);
+            else if (tile == TILE_WALL_FLAG) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, RED);
+            else if (tile == TILE_BARREL) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, DARKGREEN);
+            else if (tile == TILE_LAMP) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, YELLOW);
+            else if (tile == TILE_PORTRAIT) DrawRectangle(minimapX + x * scale, minimapY + y * scale, scale, scale, GOLD);
+        }
+    }
+
+    DrawRectangleLines(minimapX, minimapY, MAP_WIDTH * scale, MAP_HEIGHT * scale, GREEN);
+
+    int playerCellX = (int)((player.position.x - mapPosition.x) / WORLD_SCALE);
+    int playerCellY = (int)((player.position.z - mapPosition.z) / WORLD_SCALE);
+
+    if (playerCellX >= 0 && playerCellX < MAP_WIDTH && playerCellY >= 0 && playerCellY < MAP_HEIGHT)
+    {
+        DrawRectangle(minimapX + playerCellX * scale, minimapY + playerCellY * scale, scale, scale, GREEN);
+    }
+}
+
+static void DrawUI(void)
+{
+    DrawRectangle(5, 5, 520, 120, Fade(SKYBLUE, 0.5f));
+    DrawRectangleLines(5, 5, 520, 120, BLUE);
+
+    DrawText("Map Design Mode", 15, 15, 16, BLACK);
+    DrawText("- Move: W/S/A/D", 15, 38, 14, BLACK);
+    DrawText("- Mouse: Look around", 15, 58, 14, BLACK);
+    DrawText("- Door: Press [E]", 15, 78, 14, MAROON);
+    DrawText("- Arena: Move around pillars and cover", 15, 98, 14, MAROON);
+
+    if (isShutterOpen && shutterOpenTimer >= 1.0f)
+    {
+        DrawText(TextFormat("Door closing in: %.1f sec", 1.5f - shutterHoldTimer), 15, 130, 14, RED);
+    }
+
+    DrawFPS(10, GetScreenHeight() - 30);
+}
+
+
