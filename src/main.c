@@ -3,7 +3,7 @@
 #include "../header/userInterface.h"
 #include "../header/main.h"
 #include "../header/shootingLogic.h"
-#include "../header/mapDesign.h"
+#include "../header/map.h"
 #include <math.h>
 
 #define GRAVITY         32.0f

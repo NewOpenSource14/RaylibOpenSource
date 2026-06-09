@@ -1,5 +1,5 @@
-#ifndef MAP_DESIGN_H
-#define MAP_DESIGN_H
+#ifndef MAP_H
+#define MAP_H
 
 #include "raylib.h"
 #include <stdbool.h>
