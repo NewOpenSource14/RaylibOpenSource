@@ -34,6 +34,9 @@
 #define TILE_PORTRAIT       20
 #define TILE_PLAYER_START   21
 
+extern int myMap[MAP_HEIGHT][MAP_WIDTH];
+extern Vector3 mapPosition;
+
 // 플레이어 시작 위치를 맵 배열에서 찾아서 반환하는 함수이다.
 Vector3 GetPlayerStartPosition(void);
 

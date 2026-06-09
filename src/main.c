@@ -4,10 +4,9 @@
 #include "../header/main.h"
 #include "../header/shootingLogic.h"
 #include "../header/mapDesign.h"
-#include <math.h>
-
 #include "../enemy/enemy.h"
 #include "../enemy/fireball.h"
+#include <math.h>
 
 #define GRAVITY         32.0f
 #define MAX_SPEED       20.0f
@@ -29,33 +28,6 @@ typedef struct {
     Vector3 dir;
     bool isGrounded;
 } Body;
-<<<<<<< HEAD
-=======
-#define MAP_WIDTH 16
-#define MAP_HEIGHT 16
-
-//2차원 배열이다
-int myMap[MAP_HEIGHT][MAP_WIDTH] = {
-    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1},
-    {1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1}
-};
-//map이 정확의 어디에 위치를 할건지에 대한 내용
-Vector3 mapPosition = { -8.0f, 0.0f, -8.0f };  
->>>>>>> origin/KAN-7-making-enemy
 
 //이거는 그냥 screen을 소환하는거임
 const int screenWidth = 1600;
@@ -70,12 +42,10 @@ static Vector2 sensitivity = { 0.001f, 0.001f };
 
 //이거는 실제 플레이어
 static Body player = { 0 };
-<<<<<<< HEAD
 
-=======
 // 적 관련 변수들
 static Enemy enemy;
->>>>>>> origin/KAN-7-making-enemy
+
 //rotation 인간이 얼마나 요리보고 조리보고 할 수 있는지
 static Vector2 lookRotation = { 0 };
 
@@ -123,6 +93,9 @@ int main(void)
 
     while (!WindowShouldClose())
     {
+        // 지난 프레임부터 지금까지 얼마나 시간이 흘렀나를 보는것입니다.
+        float delta = GetFrameTime();
+
         // 마우스가 지난 프레임보다 얼마나 더 움직였니?
         Vector2 mouseDelta = GetMouseDelta();
 
@@ -144,18 +117,11 @@ int main(void)
         // UpdateBody 안에서 X/Z축 이동과 스무스한 충돌 처리를 모두 완료합니다.
         UpdateBody(&player, lookRotation.x, sideway, forward, IsKeyPressed(KEY_SPACE), crouching);
 
-<<<<<<< HEAD
-        // 지난 프레임부터 지금까지 얼마나 시간이 흘렀나를 보는것입니다.
-=======
         // 적 업데이트 관련 함수
-        UpdateEnemy(&enemy, player.position, GetFrameTime());
+        UpdateEnemy(&enemy, player.position, delta);
 
         // 파이어볼 업데이트 관련 함수
-        UpdateFireballs(GetFrameTime());
-	
-	// 지난 프레임부터 지금까지 얼마나 시간이 흘렀나를 보는것입니다.
->>>>>>> origin/KAN-7-making-enemy
-        float delta = GetFrameTime();
+        UpdateFireballs(delta);
 
         //Lerp는 --> 선형보간의 약자다
         //일종에 두 점을 부드럽게 이어주는 방식이다
@@ -208,7 +174,6 @@ int main(void)
             BeginMode3D(camera);
 
                 //바로 바닥을 까라주는 코드가
-<<<<<<< HEAD
                 //Map Width와 Map Height만큼
                 DrawPlane(
                     (Vector3){ 0.0f, 0.0f, 0.0f },
@@ -221,29 +186,12 @@ int main(void)
                 //이제는 mapDesign.c의 DrawMap() 함수가 맵 배열을 읽고 3D 오브젝트를 그린다.
                 DrawMap();
 
-=======
-		//Map Width와 Map Height만큼
-                DrawPlane((Vector3){ 0.0f, 0.0f, 0.0f }, (Vector2){ MAP_WIDTH * 1.0f, MAP_HEIGHT * 1.0f }, DARKGRAY);
-        // 적 그리기
+                // 적 그리기
                 DrawEnemy(&enemy);
-        // 파이어볼 그리기
+
+                // 파이어볼 그리기
                 DrawFireballs();
-		//이제 실제로 배열을 하는 과정이다 우리가 봤던 0,0,1,0,0,1이런 코드를
-                for (int y = 0; y < MAP_HEIGHT; y++) 
-                {
-                    for (int x = 0; x < MAP_WIDTH; x++) 
-                    {
-			//만약에 내 배열에
-                        if (myMap[y][x] == 1) 
-                        {//이제 MAP의 position그리고 그것들의 크기를 설정을 해줄것이다
-                            Vector3 wallPos = { mapPosition.x + x * 1.0f, mapPosition.y + 1.5f, mapPosition.z + y * 1.0f };
-			    //이거는 큐브 및 와이어들을 그려주는 것이다
-                            DrawCube(wallPos, 1.0f, 3.0f, 1.0f, RED);               
-                            DrawCubeWires(wallPos, 1.0f, 3.0f, 1.0f, MAROON);     
-                        }
-                    }
-                }
->>>>>>> origin/KAN-7-making-enemy
+
                 //이것은 총알을 업데이트하고 그려주는 함수이다
                 UpdateAndDrawBullets();
 
@@ -253,31 +201,15 @@ int main(void)
             //이것은 userInterface.c에 있는 함수이다 그냥 인터페이스를 그려주는 함수이다
             Interface();
 
-<<<<<<< HEAD
             // 2D 미니맵 레이더
             // 기존 미니맵 코드는 main.c 안에서 16x16 배열을 직접 읽었지만,
             // 이제는 mapDesign.c의 DrawMiniMap() 함수가 30x20 맵을 기준으로 그린다.
             DrawMiniMap(player.position);
 
             //이거는 내 프로그램의 FPS를 뛰어주는 창이다
-=======
-            // 미니맵 위 플레이어 위치이다 yes
-	    //player이 정확의 어디에 위치를 하고 있는지 계산
-	    //player.x - 전체 map position player 위치만 남는다
-            int playerCellX = (int)(player.position.x - mapPosition.x + 0.5f);
-	    //이것도 똑같겠지
-            int playerCellY = (int)(player.position.z - mapPosition.z + 0.5f);
-	    //실제로 플레이어를 그리는 과정이다
-            DrawRectangle(minimapX + playerCellX * scale, minimapY + playerCellY * scale, scale, scale, GREEN);
-	    //적 관련 X, Y 좌표를 통해 위치 계산
-            int enemyCellX = (int)(enemy.position.x - mapPosition.x + 0.5f);
-            int enemyCellY = (int)(enemy.position.z - mapPosition.z + 0.5f);
-        //적 그리기
-            DrawRectangle(minimapX + enemyCellX * scale, minimapY + enemyCellY * scale, scale, scale, BLUE);
-	    //이거는 내 프로그램의 FPS를 뛰어주는 창이다
->>>>>>> origin/KAN-7-making-enemy
             DrawFPS(10, 10);
-        // 적 관련 정보 적기
+
+            // 적 관련 정보 적기
             DrawText("Enemy AI Active", 10, 40, 20, BLUE);
             DrawText(
                 TextFormat(

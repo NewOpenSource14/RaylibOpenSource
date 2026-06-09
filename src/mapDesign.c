@@ -3,8 +3,9 @@
 #include "../header/mapDesign.h"
 
 // 맵이 정확히 어디에 위치할 것인지에 대한 내용이다.
-// 맵을 원점 기준 중앙에 오도록 배치한다.
-static Vector3 mapPosition = {
+//  
+//  맵을 원점 기준 중앙에 오도록 배치한다.
+Vector3 mapPosition = {
     -((MAP_WIDTH * WORLD_SCALE) / 2.0f),
     0.0f,
     -((MAP_HEIGHT * WORLD_SCALE) / 2.0f)
@@ -38,7 +39,7 @@ static Vector3 mapPosition = {
 // 이 2차원 배열이 실제 맵 설계도 역할을 한다.
 // 0은 이동 공간, 10은 기둥, 11은 엄폐물이다.
 // 최종 맵은 Wolfenstein식 방-복도 구조와 중앙 전투장 구조를 섞은 형태이다.
-static int myMapDesign[MAP_HEIGHT][MAP_WIDTH] = {
+    int myMap[MAP_HEIGHT][MAP_WIDTH] = {
     {W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W},
     {W, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, W},
 
@@ -101,7 +102,7 @@ int GetMapTileSafe(int x, int y)
         return TILE_WALL;
     }
 
-    return myMapDesign[y][x];
+    return myMap[y][x];
 }
 
 Vector3 GetPlayerStartPosition(void)
@@ -110,7 +111,7 @@ Vector3 GetPlayerStartPosition(void)
     {
         for (int x = 0; x < MAP_WIDTH; x++)
         {
-            if (myMapDesign[y][x] == TILE_PLAYER_START)
+            if (myMap[y][x] == TILE_PLAYER_START)
             {
                 Vector3 startPosition = GetTileCenterWorld(x, y);
                 startPosition.y = 0.0f;
@@ -193,7 +194,7 @@ bool CheckMapCollision(Vector3 testPos, float radius)
             {
                 if (x >= 0 && x < MAP_WIDTH)
                 {
-                    int tileType = myMapDesign[y][x];
+                    int tileType = myMap[y][x];
                     bool solid = IsBlockingTile(tileType);
 
                     if (solid)
@@ -250,7 +251,7 @@ void DrawMap(void)
         {
             Vector3 tilePos = GetTileCenterWorld(x, y);
 
-            switch (myMapDesign[y][x])
+            switch (myMap[y][x])
             {
                 case TILE_WALL:
                 {
@@ -660,7 +661,7 @@ void DrawMiniMap(Vector3 playerPosition)
     {
         for (int x = 0; x < MAP_WIDTH; x++)
         {
-            int tile = myMapDesign[y][x];
+            int tile = myMap[y][x];
             Color color = BLANK;
 
             if (tile == TILE_WALL) color = DARKGRAY;
