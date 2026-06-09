@@ -10,61 +10,37 @@ static Vector3 mapPosition = {
     -((MAP_HEIGHT * WORLD_SCALE) / 2.0f)
 };
 
-// 맵 배열을 보기 쉽게 작성하기 위한 약어이다.
-// 숫자만 쓰면 13, 15, 18이 무엇인지 바로 알기 어렵기 때문에,
-// 맵디자인 코드에서는 약어를 사용한다.
-#define E   TILE_EMPTY
-#define W   TILE_WALL
-#define EN  TILE_ENEMY
-#define IT  TILE_ITEM
-#define SH  TILE_SHUTTER
-#define WD  TILE_WALL_DECOR
-#define WK  TILE_WALL_DARK
-#define G   TILE_GOAL
-#define PL  TILE_PILLAR
-#define CV  TILE_COVER
-#define EX  TILE_EXIT_SIGN
-#define WB  TILE_WALL_BLUE
-#define CY  TILE_COLUMN_CYAN
-#define DS  TILE_DESK
-#define TB  TILE_TABLE
-#define WF  TILE_WALL_FLAG
-#define BR  TILE_BARREL
-#define LP  TILE_LAMP
-#define PT  TILE_PORTRAIT
-#define PS  TILE_PLAYER_START
-
 // map.c 배열 구조
 // 이 2차원 배열이 실제 맵 설계도 역할을 한다.
 // 0은 이동 공간, 10은 기둥, 11은 엄폐물이다.
 // 최종 맵은 Wolfenstein식 방-복도 구조와 중앙 전투장 구조를 섞은 형태이다.
 static int myMap[MAP_HEIGHT][MAP_WIDTH] = {
-    {W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W},
-    {W, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, W},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+    {1, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 1},
 
-    {W, WB, E, E, E, E, E, E, WB, E, E, E, E, E, E, E, E, E, E, E, E, WB, E, E, E, E, E, E, WB, W},
-    {W, WB, E, PS, E, E, IT, E, WB, E, DS, E, EN, E, PT, PT, E, EN, E, DS, E, WB, E, BR, E, E, IT, E, WB, W},
-    {W, WB, E, E, E, CV, E, E, E, E, E, E, E, E, CV, CV, E, E, E, E, E, E, E, E, CV, E, E, E, WB, W},
+    {1, 13, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 13, 1},
+    {1, 13, 0, 21, 0, 0, 3, 0, 13, 0, 15, 0, 2, 0, 20, 20, 0, 2, 0, 15, 0, 13, 0, 18, 0, 0, 3, 0, 13, 1},
+    {1, 13, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 13, 1},
 
-    {W, WB, WB, WB, E, WB, WB, WB, WB, WB, WB, WB, WB, WB, E, E, WB, WB, WB, WB, WB, WB, WB, WB, E, WB, WB, WB, WB, W},
-    {W, WB, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, WB, W},
+    {1, 13, 13, 13, 0, 13, 13, 13, 13, 13, 13, 13, 13, 13, 0, 0, 13, 13, 13, 13, 13, 13, 13, 13, 0, 13, 13, 13, 13, 1},
+    {1, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 1},
 
-    {W, WB, E, WB, WB, WB, WB, WB, WB, WD, WD, WD, WF, WF, E, E, WF, WF, WD, WD, WD, WB, WB, WB, WB, WB, WB, E, WB, W},
-    {W, WB, E, WB, E, E, E, E, WB, WD, E, CV, E, E, PL, PL, E, E, CV, E, WD, WB, E, E, E, E, WB, E, WB, W},
-    {W, WB, E, E, E, LP, E, E, E, E, E, E, E, EN, E, E, EN, E, E, E, E, E, E, E, LP, E, E, E, WB, W},
-    {W, WB, E, WB, E, E, E, E, WB, WD, E, CV, E, E, TB, TB, E, E, CV, E, WD, WB, E, E, E, E, WB, E, WB, W},
-    {W, WB, E, WB, E, IT, E, E, WB, WD, E, E, E, EN, E, E, EN, E, E, E, WD, WB, E, E, IT, E, WB, E, WB, W},
-    {W, WB, E, WB, WB, WB, E, WB, WB, WD, WD, WD, WF, WF, E, E, WF, WF, WD, WD, WD, WB, WB, WB, E, WB, WB, E, WB, W},
+    {1, 13, 0, 13, 13, 13, 13, 13, 13, 5, 5, 5, 17, 17, 0, 0, 17, 17, 5, 5, 5, 13, 13, 13, 13, 13, 13, 0, 13, 1},
+    {1, 13, 0, 13, 0, 0, 0, 0, 13, 5, 0, 11, 0, 0, 10, 10, 0, 0, 11, 0, 5, 13, 0, 0, 0, 0, 13, 0, 13, 1},
+    {1, 13, 0, 0, 0, 19, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 19, 0, 0, 0, 13, 1},
+    {1, 13, 0, 13, 0, 0, 0, 0, 13, 5, 0, 11, 0, 0, 16, 16, 0, 0, 11, 0, 5, 13, 0, 0, 0, 0, 13, 0, 13, 1},
+    {1, 13, 0, 13, 0, 3, 0, 0, 13, 5, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 5, 13, 0, 0, 3, 0, 13, 0, 13, 1},
+    {1, 13, 0, 13, 13, 13, 0, 13, 13, 5, 5, 5, 17, 17, 0, 0, 17, 17, 5, 5, 5, 13, 13, 13, 0, 13, 13, 0, 13, 1},
 
-    {W, WB, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, WB, W},
+    {1, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 1},
 
-    {W, WB, E, E, E, E, E, E, WB, E, E, E, E, WB, E, E, WB, E, E, E, E, WB, E, E, E, E, E, E, WB, W},
-    {W, WB, E, BR, E, CV, E, E, WB, E, DS, E, EN, WB, E, E, WB, EN, E, DS, E, WB, E, E, CV, E, BR, E, WB, W},
-    {W, WB, E, E, E, E, IT, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, IT, E, E, E, E, WB, W},
+    {1, 13, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13, 0, 0, 13, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 13, 1},
+    {1, 13, 0, 18, 0, 11, 0, 0, 13, 0, 15, 0, 2, 13, 0, 0, 13, 2, 0, 15, 0, 13, 0, 0, 11, 0, 18, 0, 13, 1},
+    {1, 13, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 13, 1},
 
-    {W, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, EX, E, G, E, EX, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, W},
-    {W, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, EX, EX, EX, EX, EX, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, W},
-    {W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W}
+    {1, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 12, 0, 9, 0, 12, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 1},
+    {1, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 12, 12, 12, 12, 12, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 };
 
 static Vector3 GetTileCenterWorld(int x, int y);
