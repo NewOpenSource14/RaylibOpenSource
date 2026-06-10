@@ -3,9 +3,7 @@
 #include "../header/userInterface.h"
 #include "../header/main.h"
 #include "../header/shootingLogic.h"
-#include "../header/mapDesign.h"
-#include "../enemy/enemy.h"
-#include "../enemy/fireball.h"
+#include "../header/map.h"
 #include <math.h>
 
 #define GRAVITY         32.0f
@@ -43,9 +41,6 @@ static Vector2 sensitivity = { 0.001f, 0.001f };
 //이거는 실제 플레이어
 static Body player = { 0 };
 
-// 적 관련 변수들
-static Enemy enemy;
-
 //rotation 인간이 얼마나 요리보고 조리보고 할 수 있는지
 static Vector2 lookRotation = { 0 };
 
@@ -72,12 +67,6 @@ int main(void)
     player.position = GetPlayerStartPosition();
     player.isGrounded = true;
 
-    //적 초기화
-    InitEnemy(&enemy, (Vector3){ -5.0f, 0.0f, -5.0f });
-
-    //적 파이어볼 공격 초기화
-    InitFireballs();
-
     //camera fovy --> 카메라를 축소하고 늘리는것을 담당한다
     camera.fovy = 60.0f;
 
@@ -93,9 +82,6 @@ int main(void)
 
     while (!WindowShouldClose())
     {
-        // 지난 프레임부터 지금까지 얼마나 시간이 흘렀나를 보는것입니다.
-        float delta = GetFrameTime();
-
         // 마우스가 지난 프레임보다 얼마나 더 움직였니?
         Vector2 mouseDelta = GetMouseDelta();
 
@@ -117,11 +103,8 @@ int main(void)
         // UpdateBody 안에서 X/Z축 이동과 스무스한 충돌 처리를 모두 완료합니다.
         UpdateBody(&player, lookRotation.x, sideway, forward, IsKeyPressed(KEY_SPACE), crouching);
 
-        // 적 업데이트 관련 함수
-        UpdateEnemy(&enemy, player.position, delta);
-
-        // 파이어볼 업데이트 관련 함수
-        UpdateFireballs(delta);
+        // 지난 프레임부터 지금까지 얼마나 시간이 흘렀나를 보는것입니다.
+        float delta = GetFrameTime();
 
         //Lerp는 --> 선형보간의 약자다
         //일종에 두 점을 부드럽게 이어주는 방식이다
@@ -186,12 +169,6 @@ int main(void)
                 //이제는 mapDesign.c의 DrawMap() 함수가 맵 배열을 읽고 3D 오브젝트를 그린다.
                 DrawMap();
 
-                // 적 그리기
-                DrawEnemy(&enemy);
-
-                // 파이어볼 그리기
-                DrawFireballs();
-
                 //이것은 총알을 업데이트하고 그려주는 함수이다
                 UpdateAndDrawBullets();
 
@@ -208,21 +185,6 @@ int main(void)
 
             //이거는 내 프로그램의 FPS를 뛰어주는 창이다
             DrawFPS(10, 10);
-
-            // 적 관련 정보 적기
-            DrawText("Enemy AI Active", 10, 40, 20, BLUE);
-            DrawText(
-                TextFormat(
-                    "Enemy Pos: %.2f %.2f %.2f",
-                    enemy.position.x,
-                    enemy.position.y,
-                    enemy.position.z
-                ),
-                10,
-                70,
-                20,
-                BLACK
-            );
 
         EndDrawing();
     }

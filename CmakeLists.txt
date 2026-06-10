@@ -14,12 +14,9 @@ FetchContent_MakeAvailable(raylib)
 
 add_executable(${PROJECT_NAME}
     src/main.c
-    src/mapDesign.c
+    src/map.c
     src/userInterface.c
     src/shootingLogic.c
-
-    enemy/enemy.c
-    enemy/fireball.c
 )
 
 if(WIN32)
