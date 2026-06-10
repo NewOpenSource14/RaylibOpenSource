@@ -299,11 +299,17 @@ static void UpdateBody(Body *body, float rot, char side, char forward, bool jump
     body->position.y += body->velocity.y * delta;
 
     //그냥 바닥에 있거나 바닥을 뚫고 밑으로 들어가려고 하면????
-    if (body->position.y <= 0.0f)
+    float floorHeight = GetMapFloorHeight(body->position, 0.35f);
+
+    if (body->position.y <= floorHeight && body->velocity.y <= 0.0f)
     {
-        body->position.y = 0.0f;
+        body->position.y = floorHeight;
         body->velocity.y = 0.0f;
         body->isGrounded = true;
+    }
+    else
+    {
+        body->isGrounded = false;
     }
 }
 

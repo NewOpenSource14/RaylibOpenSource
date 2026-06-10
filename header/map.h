@@ -47,6 +47,8 @@ int GetMapTileSafe(int x, int y);
 // 플레이어와 맵의 충돌을 확인하는 함수이다.
 bool CheckMapCollision(Vector3 testPos, float radius);
 
+float GetMapFloorHeight(Vector3 testPos, float radius);
+
 // 3D 맵을 그리는 함수이다.
 void DrawMap(void);
 
