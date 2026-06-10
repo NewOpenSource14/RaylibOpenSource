@@ -1,5 +1,7 @@
 #include "../../header/shootingLogic.h"
 #include "../../header/enemy.h"
+#include "../../header/close_enemy.h"
+#include "../../header/boss.h"
 #include "raylib.h"
 #include "raymath.h"
 #include <stdio.h>
@@ -11,7 +13,7 @@ extern const int screenHeight;
 
 //이거는 걍 탄창 보관소 array
 //나중에 change
-static Bullet bullets[10] = { 0 };
+static Bullet bullets[50] = { 0 };
 int total_bullets = 10;
 
 // 게임이 시작이 되면 일단 총알은 없음
@@ -60,6 +62,41 @@ static bool CheckBulletHitEnemy(Vector3 bulletPos, Enemy* target) {
     return false;
 }
 
+static bool CheckBulletHitCloseEnemy(Vector3 bulletPos, CloseEnemy* target) {
+    if (!target->active) return false;
+
+    // 근거리 적의 히트박스 영역 (최소점 min, 최대점 max)
+    BoundingBox enemyBox = {
+        (Vector3){ target->position.x - 0.5f, 0.0f, target->position.z - 0.5f }, // 최소 좌표
+        (Vector3){ target->position.x + 0.5f, 1.5f, target->position.z + 0.5f }  // 최대 좌표
+    };
+
+    // 💡 총알의 X, Y, Z 좌표가 적의 3D 박스 범위 안에 모두 들어와 있는지 직접 검사
+    bool hitX = (bulletPos.x >= enemyBox.min.x && bulletPos.x <= enemyBox.max.x);
+    bool hitY = (bulletPos.y >= enemyBox.min.y && bulletPos.y <= enemyBox.max.y);
+    bool hitZ = (bulletPos.z >= enemyBox.min.z && bulletPos.z <= enemyBox.max.z);
+
+    // X, Y, Z축이 모두 겹치면 충돌(true)입니다.
+    return (hitX && hitY && hitZ);
+}
+
+static bool CheckBulletHitBoss(Vector3 bulletPos, Boss* target) {
+    if (target == NULL) return false;
+    if (!target->active) return false;
+
+    float halfW = 1.25f;
+    float halfH = 1.75f;
+
+    BoundingBox bossBox = {
+        (Vector3){ target->position.x - halfW, target->position.y - halfH, target->position.z - halfW },
+        (Vector3){ target->position.x + halfW, target->position.y + halfH, target->position.z + halfW }
+    };
+    
+    return (bulletPos.x >= bossBox.min.x && bulletPos.x <= bossBox.max.x &&
+            bulletPos.y >= bossBox.min.y && bulletPos.y <= bossBox.max.y &&
+            bulletPos.z >= bossBox.min.z && bulletPos.z <= bossBox.max.z);
+}
+
 //여기는 마우스를 받는곳
 void ShootingLogic() {
     // 마우스 누르면 소환
@@ -70,7 +107,7 @@ void ShootingLogic() {
 }
 
 //이제 실제로 총알을 구현
-void UpdateAndDrawBullets(Enemy* target) {
+void UpdateAndDrawBullets(Enemy* target, CloseEnemy* closeTarget, Boss* bossTarget) {
     //프레임마다 시간 가져오기 (delta time)
     float deltaTime = GetFrameTime(); 
 
@@ -80,9 +117,44 @@ void UpdateAndDrawBullets(Enemy* target) {
             //이것은 게임루프안에 있으므로 시간이 지남에 따라서 총알이 움직이는것이다
             bullets[i].position = Vector3Add(bullets[i].position, Vector3Scale(bullets[i].velocity, deltaTime));
 
-	    if (CheckBulletHitEnemy(bullets[i].position, target)) {
+	        if (CheckBulletHitEnemy(bullets[i].position, target)) {
                 printf("yo been hit...by me");
-		enemy.health -= 34;
+		        target->health -= 34;
+                target->hitFlashTimer = 0.25f;
+
+                // 넛백 효과 추가
+                Vector3 bulletDir = Vector3Normalize(bullets[i].velocity);
+                float knockbackForce = 22.0f;
+                target->knockback = Vector3Scale(bulletDir, knockbackForce);
+
+                bullets[i].active = false; 
+                continue;
+            }
+        
+            if (CheckBulletHitCloseEnemy(bullets[i].position, closeTarget)) {
+                    printf("근거리 적 명중!\n");
+                    
+                    closeTarget->health -= 34;           // 총알 데미지 감소
+                    closeTarget->hitFlashTimer = 0.35f;  // 0.35초 동안 빨간색 변환 트리거
+
+                    // 근거리 적 넛백 메커니즘 발동
+                    Vector3 bulletDir = Vector3Normalize(bullets[i].velocity);
+                    float knockbackForce = 22.0f; 
+                    closeTarget->knockback = Vector3Scale(bulletDir, knockbackForce);
+
+                    bullets[i].active = false; // 총알 소멸
+                    continue;
+            }
+
+            if (CheckBulletHitBoss(bullets[i].position, bossTarget)) {
+                printf("보스 명중!\n");
+                
+                bossTarget->health -= 10.0f; // 보스는 튼튼하니까 데미지를 적게 설정
+                
+                // 보스 넛백 함수 호출 (저항력 0.3배 자동 적용됨)
+                Vector3 bulletDir = Vector3Normalize(bullets[i].velocity);
+                ApplyBossKnockback(bossTarget, Vector3Scale(bulletDir, 20.0f));
+
                 bullets[i].active = false; 
                 continue;
             }

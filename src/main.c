@@ -2,10 +2,12 @@
 #include "../header/shootingLogic.h"
 #include "../header/main.h"
 #include "../header/enemy.h"
+#include "../header/boss.h"
 #include "../header/fireball.h"
 #include "../header/camera.h"
 #include "../header/map.h"
 #include "../header/userInterface.h"
+#include "../header/close_enemy.h"
 
 //map이 정확의 어디에 위치를 할건지에 대한 내용
 Vector3 mapPosition = { -8.0f, 0.0f, -8.0f };  
@@ -22,6 +24,8 @@ float shutterHoldTimer = 0.0f;
 Body player = { 0 };
 // 적 관련 변수들
 Enemy enemy;
+CloseEnemy closeEnemy;
+Boss boss;
 
 int main(void)
 {
@@ -41,9 +45,10 @@ int main(void)
 
     //enemy및 player spawn
     EnemeyPlayerSpawnPoint();
-    
+        
     //커서는 안보이게 하는것
     DisableCursor(); 
+    
     //FPS는 60프레임으로 마추는 것이다
     SetTargetFPS(60);
 
@@ -61,6 +66,8 @@ int main(void)
 
         // 적 업데이트 관련 함수
         UpdateEnemy(&enemy, player.position, GetFrameTime());
+        UpdateCloseEnemy(&closeEnemy, player.position, &player.health, GetFrameTime());
+        UpdateBoss(&boss, player.position, GetFrameTime());
 
         // 파이어볼 업데이트 관련 함수
         UpdateFireballs(GetFrameTime(), &player);
@@ -77,12 +84,14 @@ int main(void)
 		//Map Width와 Map Height만큼
 		// 적 그리기
                 DrawEnemy(&enemy);
+                DrawCloseEnemy(&closeEnemy);
+                DrawBoss(&boss);
 		// 파이어볼 그리기
                 DrawFireballs();
 		//map을 실제로 렌더링
 		MapRender();
                 //이것은 총알을 업데이트하고 그려주는 함수이다
-                UpdateAndDrawBullets(&enemy);
+                UpdateAndDrawBullets(&enemy, &closeEnemy, &boss);
             //그릴건 다 끝났으니 해재한다
             EndMode3D();
 	    //이거는 내 프로그램의 FPS를 뛰어주는 창이다

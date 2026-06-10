@@ -6,14 +6,12 @@
 typedef struct Enemy
 {
     float health;
-
     Vector3 position;
-
     float speed;
-
     float detectRange;
-
     bool active;
+    Vector3 knockback;
+    float hitFlashTimer;
 
 } Enemy;
 
@@ -23,11 +21,7 @@ extern Enemy enemy;
 void InitEnemy(Enemy* enemy, Vector3 startPos);
 
 // 적 업데이트
-void UpdateEnemy(
-    Enemy* enemy,
-    Vector3 playerPos,
-    float deltaTime
-);
+void UpdateEnemy(Enemy* enemy, Vector3 playerPos, float deltaTime);
 
 // 적 그리기
 void DrawEnemy(Enemy* enemy);
