@@ -5,6 +5,8 @@
 
 typedef struct Enemy
 {
+    float health;
+
     Vector3 position;
 
     float speed;
@@ -14,6 +16,8 @@ typedef struct Enemy
     bool active;
 
 } Enemy;
+
+extern Enemy enemy;
 
 // 적 생성
 void InitEnemy(Enemy* enemy, Vector3 startPos);

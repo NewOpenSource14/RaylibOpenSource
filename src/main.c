@@ -14,4 +14,8 @@ int main(void)
     CloseGameLoop();
 
     return 0;
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin/KAN-8-organized

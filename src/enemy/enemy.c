@@ -1,14 +1,15 @@
-#include "enemy.h"
-#include "fireball.h"
+#include "../../header/enemy.h"
+#include "../../header/fireball.h"
+#include "../../header/main.h"
 
 #include "raylib.h"
 #include "raymath.h"
+#include <stdbool.h>
 
 #define ENEMY_RADIUS 0.3f
 
 // main.c 에 있는 맵 데이터 사용
-extern int myMap[16][16];
-
+extern int myNewMap[MAP_HEIGHT][MAP_WIDTH];
 extern Vector3 mapPosition;
 
 // -----------------------------------------------------------------------------
@@ -22,40 +23,25 @@ static bool CheckEnemyCollision(Vector3 testPos)
         testPos.z
     };
 
-    int cellX =
-        (int)(
-            testPos.x
-            -
-            mapPosition.x
-            +
-            0.5f
-        );
-
-    int cellY =
-        (int)(
-            testPos.z
-            -
-            mapPosition.z
-            +
-            0.5f
-        );
+    int cellX = (int)((testPos.x - mapPosition.x) / WORLD_SCALE);
+    int cellY = (int)((testPos.z - mapPosition.z) / WORLD_SCALE);
 
     for (int y = cellY - 1; y <= cellY + 1; y++)
     {
-        if (y >= 0 && y < 16)
+        if (y >= 0 && y < MAP_HEIGHT)
         {
             for (int x = cellX - 1; x <= cellX + 1; x++)
             {
-                if (x >= 0 && x < 16)
+if (x >= 0 && x < MAP_WIDTH)
                 {
-                    if (myMap[y][x] == 1)
+                    if (myNewMap[y][x] == 1)
                     {
-                        Rectangle wallRect =
+			Rectangle wallRect =
                         {
-                            mapPosition.x - 0.5f + x,
-                            mapPosition.z - 0.5f + y,
-                            1.0f,
-                            1.0f
+                            mapPosition.x + (x * WORLD_SCALE),
+                            mapPosition.z + (y * WORLD_SCALE),
+                            WORLD_SCALE,
+                            WORLD_SCALE
                         };
 
                         if (
@@ -85,11 +71,13 @@ void InitEnemy(
     Vector3 startPos
 )
 {
+    enemy->health = 100;
+    
     enemy->position = startPos;
 
     enemy->speed = 2.0f;
 
-    enemy->detectRange = 10.0f;
+    enemy->detectRange = 15.0f *  WORLD_SCALE;
 
     enemy->active = true;
 }
@@ -103,6 +91,9 @@ void UpdateEnemy(
     float deltaTime
 )
 {
+    if (enemy->health < 0 )
+	enemy->active = false;
+
     if (!enemy->active)
         return;
 
