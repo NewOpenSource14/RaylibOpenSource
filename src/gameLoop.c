@@ -7,6 +7,7 @@
 #include "../header/shootingLogic.h"
 #include "../header/map.h"
 #include "../header/enemy.h"
+#include "../header/fireball.h"
 
 #include <math.h>
 #include <stdbool.h>
@@ -24,6 +25,9 @@ static float walkLerp = 0.0f;
 static float headLerp = STAND_HEIGHT;
 static Vector2 lean = { 0 };
 
+void EnemyPlayerSpawnPoint(void);
+void spawnBullet(Camera3D cam);
+
 static void UpdateGameLoopBody(
     Body *body,
     float rot,
@@ -34,12 +38,14 @@ static void UpdateGameLoopBody(
 );
 
 static void UpdateGameLoopCameraFPS(Camera *camera);
+static bool CheckEnemyBodyCollision(Vector3 testPos, float radius);
 
 void InitGameLoop(void)
 {
     InitWindow(screenWidth, screenHeight, "raylib - Wolfenstein Style Map Design");
 
     InitShooting();
+    InitFireballs();
 
     player.position = GetPlayerStartPosition();
     player.velocity = (Vector3){ 0.0f, 0.0f, 0.0f };
@@ -47,6 +53,33 @@ void InitGameLoop(void)
     player.isGrounded = true;
     player.health = 100.0f;
 
+    EnemyPlayerSpawnPoint();
+
+    if (!enemy.active)
+    {
+        InitEnemy(
+            &enemy,
+            (Vector3){
+                player.position.x + 5.0f,
+                1.5f,
+                player.position.z + 5.0f
+            }
+        );
+    }
+
+    camera.position = (Vector3){
+        player.position.x,
+        player.position.y + BOTTOM_HEIGHT + STAND_HEIGHT,
+        player.position.z
+    };
+
+    camera.target = (Vector3){
+        player.position.x,
+        player.position.y + BOTTOM_HEIGHT + STAND_HEIGHT,
+        player.position.z - 1.0f
+    };
+
+    camera.up = (Vector3){ 0.0f, 1.0f, 0.0f };
     camera.fovy = 60.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
@@ -56,12 +89,12 @@ void InitGameLoop(void)
 
 void UpdateGameLoop(void)
 {
+    float delta = GetFrameTime();
+
     Vector2 mouseDelta = GetMouseDelta();
 
     lookRotation.x -= mouseDelta.x * sensitivity.x;
     lookRotation.y += mouseDelta.y * sensitivity.y;
-
-    ShootingLogic();
 
     char sideway = (char)(IsKeyDown(KEY_D) - IsKeyDown(KEY_A));
     char forward = (char)(IsKeyDown(KEY_W) - IsKeyDown(KEY_S));
@@ -75,8 +108,6 @@ void UpdateGameLoop(void)
         IsKeyPressed(KEY_SPACE),
         crouching
     );
-
-    float delta = GetFrameTime();
 
     headLerp = Lerp(
         headLerp,
@@ -106,6 +137,14 @@ void UpdateGameLoop(void)
     lean.y = Lerp(lean.y, forward * 0.015f, 10.0f * delta);
 
     UpdateGameLoopCameraFPS(&camera);
+
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT) && total_bullets > 0)
+    {
+        spawnBullet(camera);
+    }
+
+    UpdateEnemy(&enemy, player.position, delta);
+    UpdateFireballs(delta, &player);
 }
 
 void DrawGameLoop(void)
@@ -116,26 +155,18 @@ void DrawGameLoop(void)
 
         BeginMode3D(camera);
 
-            DrawPlane(
-                (Vector3){ 0.0f, 0.0f, 0.0f },
-                (Vector2){ MAP_WIDTH * WORLD_SCALE, MAP_HEIGHT * WORLD_SCALE },
-                DARKGRAY
-            );
+            MapRender();
 
-            DrawMap();
+            DrawEnemy(&enemy);
+            DrawFireballs();
 
             UpdateAndDrawBullets(&enemy);
 
         EndMode3D();
-        DrawText("DRAW LOOP RUNNING", 30, 40, 24, RED);
-        DrawText(TextFormat("Player: %.2f %.2f %.2f", player.position.x, player.position.y, player.position.z), 30, 70, 20, RED);
-        
+
         Interface();
 
-        DrawMiniMap(player.position);
-
         DrawFPS(10, 10);
-      
 
     EndDrawing();
 }
@@ -226,7 +257,8 @@ static void UpdateGameLoopBody(
     Vector3 nextPosX = body->position;
     nextPosX.x += body->velocity.x * delta;
 
-    if (!CheckMapCollision(nextPosX, playerRadius))
+    if (!CheckMapCollision(nextPosX, playerRadius) &&
+        !CheckEnemyBodyCollision(nextPosX, playerRadius))
     {
         body->position.x = nextPosX.x;
     }
@@ -238,7 +270,8 @@ static void UpdateGameLoopBody(
     Vector3 nextPosZ = body->position;
     nextPosZ.z += body->velocity.z * delta;
 
-    if (!CheckMapCollision(nextPosZ, playerRadius))
+    if (!CheckMapCollision(nextPosZ, playerRadius) &&
+        !CheckEnemyBodyCollision(nextPosZ, playerRadius))
     {
         body->position.z = nextPosZ.z;
     }
@@ -261,6 +294,33 @@ static void UpdateGameLoopBody(
     {
         body->isGrounded = false;
     }
+}
+
+static bool CheckEnemyBodyCollision(Vector3 testPos, float radius)
+{
+    if (!enemy.active)
+    {
+        return false;
+    }
+
+    Vector2 playerPos2D = {
+        testPos.x,
+        testPos.z
+    };
+
+    Vector2 enemyPos2D = {
+        enemy.position.x,
+        enemy.position.z
+    };
+
+    float enemyRadius = 0.65f;
+
+    return CheckCollisionCircles(
+        playerPos2D,
+        radius,
+        enemyPos2D,
+        enemyRadius
+    );
 }
 
 static void UpdateGameLoopCameraFPS(Camera *camera)

@@ -4,15 +4,18 @@
 #include "raylib.h"
 #include <stdbool.h>
 
-// 맵 크기와 월드 스케일을 정의하는 부분이다.
-// 기존 팀원 코드는 16x16 맵이었지만, 맵디자인 최종본은 30x20 구조로 확장한다.
+/*
+    맵 크기와 월드 스케일 정의
+    최종 맵은 30 x 20 구조이다.
+*/
 #define MAP_WIDTH        30
 #define MAP_HEIGHT       20
 #define WORLD_SCALE      2.5f
 
-// 타일 번호 정의
-// 맵 요소를 숫자 타일로 구분한다.
-// 배열 값만 바꿔도 맵 구조와 오브젝트 배치를 수정할 수 있다.
+/*
+    타일 번호 정의
+    myNewMap 배열 안의 숫자가 어떤 오브젝트인지 구분한다.
+*/
 #define TILE_EMPTY          0
 #define TILE_WALL           1
 #define TILE_ENEMY          2
@@ -34,25 +37,50 @@
 #define TILE_PORTRAIT       20
 #define TILE_PLAYER_START   21
 
-// 플레이어 시작 위치를 맵 배열에서 찾아서 반환하는 함수이다.
+/*
+    map_update.c에 실제로 정의되어 있는 전역 변수들.
+    다른 파일에서 사용하려면 여기서 extern으로 알려줘야 한다.
+*/
+extern Vector3 mapPosition;
+extern int myNewMap[MAP_HEIGHT][MAP_WIDTH];
+
+extern bool isShutterOpen;
+extern float shutterOpenTimer;
+extern float shutterHoldTimer;
+
+/*
+    맵 위치 / 타일 조회 함수
+*/
+Vector3 GetMapPosition(void);
+int GetMapTileSafe(int x, int y);
 Vector3 GetPlayerStartPosition(void);
 
-// 맵 전체의 중심 위치를 반환하는 함수이다.
-Vector3 GetMapPosition(void);
-
-// 맵 타일을 안전하게 가져오는 함수이다.
-// 맵 밖을 참조하면 벽으로 처리한다.
-int GetMapTileSafe(int x, int y);
-
-// 플레이어와 맵의 충돌을 확인하는 함수이다.
+/*
+    플레이어와 맵 충돌 / 바닥 높이 판정 함수
+*/
 bool CheckMapCollision(Vector3 testPos, float radius);
-
 float GetMapFloorHeight(Vector3 testPos, float radius);
 
-// 3D 맵을 그리는 함수이다.
+/*
+    맵 렌더링 함수
+*/
 void DrawMap(void);
+void MapRender(void);
 
-// 2D 미니맵을 그리는 함수이다.
+/*
+    2D 미니맵 함수.
+    단, 현재 원하는 색깔 미니맵은 userInterface.c의 SpawnMiniMap() 쪽이 담당한다.
+    이 함수는 기존 코드 호환용으로 선언만 유지한다.
+*/
 void DrawMiniMap(Vector3 playerPosition);
+
+/*
+    플레이어 / 적 스폰 함수.
+    EnemeyPlayerSpawnPoint는 기존 코드의 오타 이름이고,
+    EnemyPlayerSpawnPoint는 오타 없는 이름이다.
+    둘 다 map_update.c에 있어야 한다.
+*/
+void EnemeyPlayerSpawnPoint(void);
+void EnemyPlayerSpawnPoint(void);
 
 #endif

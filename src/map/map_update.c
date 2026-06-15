@@ -5,10 +5,9 @@
 #include "../../header/enemy.h"
 #include <stdbool.h>
 
-
 // 맵이 정확히 어디에 위치할 것인지에 대한 내용이다.
 // 맵을 원점 기준 중앙에 오도록 배치한다.
- Vector3 mapPosition = {
+Vector3 mapPosition = {
     -((MAP_WIDTH * WORLD_SCALE) / 2.0f),
     0.0f,
     -((MAP_HEIGHT * WORLD_SCALE) / 2.0f)
@@ -221,41 +220,73 @@ bool CheckMapCollision(Vector3 testPos, float radius)
                 if (x >= 0 && x < MAP_WIDTH)
                 {
                     int tileType = myNewMap[y][x];
-                    bool solid = IsBlockingTile(tileType);
 
-                    if (solid)
+                    if (!IsBlockingTile(tileType))
                     {
-                        float rectX = mapPosition.x + x * WORLD_SCALE;
-                        float rectZ = mapPosition.z + y * WORLD_SCALE;
-                        float rectW = WORLD_SCALE;
-                        float rectH = WORLD_SCALE;
+                        continue;
+                    }
 
-                        if (tileType == TILE_COVER)
+                    float rectX = mapPosition.x + x * WORLD_SCALE;
+                    float rectZ = mapPosition.z + y * WORLD_SCALE;
+                    float rectW = WORLD_SCALE;
+                    float rectH = WORLD_SCALE;
+
+                    if (tileType == TILE_COVER)
+                    {
+                        rectW = WORLD_SCALE * 0.82f;
+                        rectH = WORLD_SCALE * 0.82f;
+                        rectX += (WORLD_SCALE - rectW) / 2.0f;
+                        rectZ += (WORLD_SCALE - rectH) / 2.0f;
+
+                        float coverSurfaceHeight = 0.68f * WORLD_SCALE;
+                        float requiredJumpHeight = coverSurfaceHeight - 0.35f;
+
+                        if (testPos.y >= requiredJumpHeight)
                         {
-                            float jumpableHeight = 0.50f * WORLD_SCALE;
-
-                            if (testPos.y > jumpableHeight)
-                            {
-                                continue;
-                            }
-
-                            rectW = WORLD_SCALE * 0.82f;
-                            rectH = WORLD_SCALE * 0.82f;
-                            rectX += (WORLD_SCALE - rectW) / 2.0f;
-                            rectZ += (WORLD_SCALE - rectH) / 2.0f;
+                            continue;
                         }
+                    }
+                    else if (tileType == TILE_DESK)
+                    {
+                        rectW = WORLD_SCALE * 0.95f;
+                        rectH = WORLD_SCALE * 0.58f;
+                        rectX += (WORLD_SCALE - rectW) / 2.0f;
+                        rectZ += (WORLD_SCALE - rectH) / 2.0f;
 
-                        Rectangle wallRect = {
-                            rectX,
-                            rectZ,
-                            rectW,
-                            rectH
-                        };
+                        float deskSurfaceHeight = mapPosition.y + 1.0f + ((0.18f * WORLD_SCALE) / 2.0f);
+                        float requiredJumpHeight = deskSurfaceHeight - 0.30f;
 
-                        if (CheckCollisionCircleRec(pos2D, radius, wallRect))
+                        if (testPos.y >= requiredJumpHeight)
                         {
-                            return true;
+                            continue;
                         }
+                    }
+                    else if (tileType == TILE_TABLE)
+                    {
+                        rectW = WORLD_SCALE * 1.25f;
+                        rectH = WORLD_SCALE * 0.95f;
+                        rectX += (WORLD_SCALE - rectW) / 2.0f;
+                        rectZ += (WORLD_SCALE - rectH) / 2.0f;
+
+                        float tableSurfaceHeight = mapPosition.y + 1.0f + ((0.20f * WORLD_SCALE) / 2.0f);
+                        float requiredJumpHeight = tableSurfaceHeight - 0.30f;
+
+                        if (testPos.y >= requiredJumpHeight)
+                        {
+                            continue;
+                        }
+                    }
+
+                    Rectangle objectRect = {
+                        rectX,
+                        rectZ,
+                        rectW,
+                        rectH
+                    };
+
+                    if (CheckCollisionCircleRec(pos2D, radius, objectRect))
+                    {
+                        return true;
                     }
                 }
             }
@@ -265,6 +296,29 @@ bool CheckMapCollision(Vector3 testPos, float radius)
     return false;
 }
 
+static void ApplyRaisedFloorForRect(
+    Vector2 pos2D,
+    float radius,
+    Rectangle objectRect,
+    float objectHeight,
+    float requiredPlayerHeight,
+    float playerY,
+    float *floorHeight
+)
+{
+    if (playerY < requiredPlayerHeight)
+    {
+        return;
+    }
+
+    if (CheckCollisionCircleRec(pos2D, radius, objectRect))
+    {
+        if (objectHeight > *floorHeight)
+        {
+            *floorHeight = objectHeight;
+        }
+    }
+}
 float GetMapFloorHeight(Vector3 testPos, float radius)
 {
     float floorHeight = 0.0f;
@@ -284,13 +338,15 @@ float GetMapFloorHeight(Vector3 testPos, float radius)
                 {
                     int tileType = myNewMap[y][x];
 
+                    float rectX = mapPosition.x + x * WORLD_SCALE;
+                    float rectZ = mapPosition.z + y * WORLD_SCALE;
+                    float rectW = WORLD_SCALE;
+                    float rectH = WORLD_SCALE;
+
                     if (tileType == TILE_COVER)
                     {
-                        float rectW = WORLD_SCALE * 0.82f;
-                        float rectH = WORLD_SCALE * 0.82f;
-
-                        float rectX = mapPosition.x + x * WORLD_SCALE;
-                        float rectZ = mapPosition.z + y * WORLD_SCALE;
+                        rectW = WORLD_SCALE * 0.82f;
+                        rectH = WORLD_SCALE * 0.82f;
 
                         rectX += (WORLD_SCALE - rectW) / 2.0f;
                         rectZ += (WORLD_SCALE - rectH) / 2.0f;
@@ -302,15 +358,74 @@ float GetMapFloorHeight(Vector3 testPos, float radius)
                             rectH
                         };
 
-                        if (CheckCollisionCircleRec(pos2D, radius, coverRect))
-                        {
-                            float coverHeight = 0.68f * WORLD_SCALE;
+                        float coverSurfaceHeight = 0.68f * WORLD_SCALE;
+                        float requiredPlayerHeight = coverSurfaceHeight - 0.35f;
 
-                            if (coverHeight > floorHeight)
-                            {
-                                floorHeight = coverHeight;
-                            }
-                        }
+                        ApplyRaisedFloorForRect(
+                            pos2D,
+                            radius,
+                            coverRect,
+                            coverSurfaceHeight,
+                            requiredPlayerHeight,
+                            testPos.y,
+                            &floorHeight
+                        );
+                    }
+                    else if (tileType == TILE_DESK)
+                    {
+                        rectW = WORLD_SCALE * 0.95f;
+                        rectH = WORLD_SCALE * 0.58f;
+
+                        rectX += (WORLD_SCALE - rectW) / 2.0f;
+                        rectZ += (WORLD_SCALE - rectH) / 2.0f;
+
+                        Rectangle deskRect = {
+                            rectX,
+                            rectZ,
+                            rectW,
+                            rectH
+                        };
+
+                        float deskSurfaceHeight = mapPosition.y + 1.0f + ((0.18f * WORLD_SCALE) / 2.0f);
+                        float requiredPlayerHeight = deskSurfaceHeight - 0.30f;
+
+                        ApplyRaisedFloorForRect(
+                            pos2D,
+                            radius,
+                            deskRect,
+                            deskSurfaceHeight,
+                            requiredPlayerHeight,
+                            testPos.y,
+                            &floorHeight
+                        );
+                    }
+                    else if (tileType == TILE_TABLE)
+                    {
+                        rectW = WORLD_SCALE * 1.25f;
+                        rectH = WORLD_SCALE * 0.95f;
+
+                        rectX += (WORLD_SCALE - rectW) / 2.0f;
+                        rectZ += (WORLD_SCALE - rectH) / 2.0f;
+
+                        Rectangle tableRect = {
+                            rectX,
+                            rectZ,
+                            rectW,
+                            rectH
+                        };
+
+                        float tableSurfaceHeight = mapPosition.y + 1.0f + ((0.20f * WORLD_SCALE) / 2.0f);
+                        float requiredPlayerHeight = tableSurfaceHeight - 0.30f;
+
+                        ApplyRaisedFloorForRect(
+                            pos2D,
+                            radius,
+                            tableRect,
+                            tableSurfaceHeight,
+                            requiredPlayerHeight,
+                            testPos.y,
+                            &floorHeight
+                        );
                     }
                 }
             }
@@ -534,7 +649,8 @@ void DrawMap(void)
 
                 case TILE_ITEM:
                 {
-                    DrawItemMarker(tilePos);
+                    // 노란 아이템 마커를 숨긴다.
+                    // 기존 DrawItemMarker(tilePos)는 호출하지 않는다.
                     break;
                 }
 
@@ -688,12 +804,12 @@ static void DrawLamp(Vector3 tilePos)
     Vector3 basePos = tilePos;
     basePos.y = mapPosition.y + 0.35f;
 
-    DrawCylinder(basePos, 0.15f * WORLD_SCALE, 0.15f * WORLD_SCALE, 0.7f * WORLD_SCALE, 12, DARKGRAY);
+    DrawCylinder(basePos, 0.15f * WORLD_SCALE, 0.15f * WORLD_SCALE, 0.7f * WORLD_SCALE, 12, DARKGREEN);
 
     Vector3 polePos = tilePos;
     polePos.y = mapPosition.y + 1.2f;
 
-    DrawCylinder(polePos, 0.07f * WORLD_SCALE, 0.07f * WORLD_SCALE, 1.6f * WORLD_SCALE, 12, GRAY);
+    DrawCylinder(polePos, 0.07f * WORLD_SCALE, 0.07f * WORLD_SCALE, 1.6f * WORLD_SCALE, 12, GREEN);
 
     Vector3 lightPos = tilePos;
     lightPos.y = mapPosition.y + 2.2f;
@@ -759,10 +875,9 @@ void DrawMiniMap(Vector3 playerPosition)
             else if (tile == TILE_TABLE) color = DARKBROWN;
             else if (tile == TILE_WALL_FLAG) color = RED;
             else if (tile == TILE_BARREL) color = DARKGREEN;
-            else if (tile == TILE_LAMP) color = YELLOW;
+            else if (tile == TILE_LAMP) color = GREEN;
             else if (tile == TILE_PORTRAIT) color = GOLD;
             else if (tile == TILE_ENEMY) color = RED;
-            else if (tile == TILE_ITEM) color = ORANGE;
             else if (tile == TILE_PLAYER_START) color = GREEN;
 
             if (color.a > 0)
@@ -777,7 +892,7 @@ void DrawMiniMap(Vector3 playerPosition)
     int playerCellX = (int)((playerPosition.x - mapPosition.x) / WORLD_SCALE);
     int playerCellY = (int)((playerPosition.z - mapPosition.z) / WORLD_SCALE);
 
-    if (playerCellX >= 0 && playerCellX < MAP_WIDTH && playerCellX < MAP_WIDTH &&
+    if (playerCellX >= 0 && playerCellX < MAP_WIDTH &&
         playerCellY >= 0 && playerCellY < MAP_HEIGHT)
     {
         DrawRectangle(minimapX + playerCellX * scale, minimapY + playerCellY * scale, scale, scale, LIME);
