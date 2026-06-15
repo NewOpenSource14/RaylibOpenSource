@@ -1,6 +1,21 @@
-#include "raylib.h"
+#ifndef PLAYER_H
+#define PLAYER_H
 
-//struct
+#include "raylib.h"
+#include <stdbool.h>
+
+#define GRAVITY         32.0f
+#define MAX_SPEED       20.0f
+#define CROUCH_SPEED     5.0f
+#define JUMP_FORCE      12.0f
+#define MAX_ACCEL      150.0f
+#define FRICTION         0.86f
+#define AIR_DRAG         0.98f
+#define CONTROL         15.0f
+#define CROUCH_HEIGHT    0.0f
+#define STAND_HEIGHT     1.0f
+#define BOTTOM_HEIGHT    0.5f
+
 typedef struct {
     float health;
     Vector3 position;
@@ -8,10 +23,10 @@ typedef struct {
     Vector3 dir;
     bool isGrounded;
 } Body;
-//variable
+
 extern Body player;
 
-//functions
-bool CheckMapCollision(Vector3 testPos, float radius);
 void UpdateBody(Body *body, float rot, bool jumpPressed);
-void PlayerMouseMovement();
+void PlayerMouseMovement(void);
+
+#endif

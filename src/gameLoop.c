@@ -1,30 +1,15 @@
 #include "raylib.h"
 #include "raymath.h"
+
 #include "../header/gameLoop.h"
+#include "../header/player.h"
 #include "../header/userInterface.h"
 #include "../header/shootingLogic.h"
 #include "../header/map.h"
+#include "../header/enemy.h"
+
 #include <math.h>
 #include <stdbool.h>
-
-#define GRAVITY         32.0f
-#define MAX_SPEED       20.0f
-#define CROUCH_SPEED     5.0f
-#define JUMP_FORCE      12.0f
-#define MAX_ACCEL      150.0f
-#define FRICTION         0.86f
-#define AIR_DRAG         0.98f
-#define CONTROL         15.0f
-#define CROUCH_HEIGHT    0.0f
-#define STAND_HEIGHT     1.0f
-#define BOTTOM_HEIGHT    0.5f
-
-typedef struct {
-    Vector3 position;
-    Vector3 velocity;
-    Vector3 dir;
-    bool isGrounded;
-} Body;
 
 static const int screenWidth = 1600;
 static const int screenHeight = 900;
@@ -32,9 +17,6 @@ static const int screenHeight = 900;
 static Camera camera = { 0 };
 
 static Vector2 sensitivity = { 0.001f, 0.001f };
-
-static Body player = { 0 };
-
 static Vector2 lookRotation = { 0 };
 
 static float headTimer = 0.0f;
@@ -42,23 +24,33 @@ static float walkLerp = 0.0f;
 static float headLerp = STAND_HEIGHT;
 static Vector2 lean = { 0 };
 
-static void UpdateBody(Body *body, float rot, char side, char forward, bool jumpPressed, bool crouchHold);
-static void UpdateCameraFPS(Camera *camera);
+static void UpdateGameLoopBody(
+    Body *body,
+    float rot,
+    char side,
+    char forward,
+    bool jumpPressed,
+    bool crouchHold
+);
+
+static void UpdateGameLoopCameraFPS(Camera *camera);
 
 void InitGameLoop(void)
 {
-    InitShooting();
-
     InitWindow(screenWidth, screenHeight, "raylib - Wolfenstein Style Map Design");
 
+    InitShooting();
+
     player.position = GetPlayerStartPosition();
+    player.velocity = (Vector3){ 0.0f, 0.0f, 0.0f };
+    player.dir = (Vector3){ 0.0f, 0.0f, 0.0f };
     player.isGrounded = true;
+    player.health = 100.0f;
 
     camera.fovy = 60.0f;
     camera.projection = CAMERA_PERSPECTIVE;
 
     DisableCursor();
-
     SetTargetFPS(60);
 }
 
@@ -71,11 +63,18 @@ void UpdateGameLoop(void)
 
     ShootingLogic();
 
-    char sideway = (IsKeyDown(KEY_D) - IsKeyDown(KEY_A));
-    char forward = (IsKeyDown(KEY_W) - IsKeyDown(KEY_S));
+    char sideway = (char)(IsKeyDown(KEY_D) - IsKeyDown(KEY_A));
+    char forward = (char)(IsKeyDown(KEY_W) - IsKeyDown(KEY_S));
     bool crouching = IsKeyDown(KEY_LEFT_CONTROL);
 
-    UpdateBody(&player, lookRotation.x, sideway, forward, IsKeyPressed(KEY_SPACE), crouching);
+    UpdateGameLoopBody(
+        &player,
+        lookRotation.x,
+        sideway,
+        forward,
+        IsKeyPressed(KEY_SPACE),
+        crouching
+    );
 
     float delta = GetFrameTime();
 
@@ -88,28 +87,25 @@ void UpdateGameLoop(void)
     camera.position = (Vector3){
         player.position.x,
         player.position.y + (BOTTOM_HEIGHT + headLerp),
-        player.position.z,
+        player.position.z
     };
 
     if (player.isGrounded && ((forward != 0) || (sideway != 0)))
     {
         headTimer += delta * 3.0f;
-
         walkLerp = Lerp(walkLerp, 1.0f, 10.0f * delta);
-
         camera.fovy = Lerp(camera.fovy, 55.0f, 5.0f * delta);
     }
     else
     {
         walkLerp = Lerp(walkLerp, 0.0f, 10.0f * delta);
-
         camera.fovy = Lerp(camera.fovy, 60.0f, 5.0f * delta);
     }
 
     lean.x = Lerp(lean.x, sideway * 0.02f, 10.0f * delta);
     lean.y = Lerp(lean.y, forward * 0.015f, 10.0f * delta);
 
-    UpdateCameraFPS(&camera);
+    UpdateGameLoopCameraFPS(&camera);
 }
 
 void DrawGameLoop(void)
@@ -128,15 +124,18 @@ void DrawGameLoop(void)
 
             DrawMap();
 
-            UpdateAndDrawBullets();
+            UpdateAndDrawBullets(&enemy);
 
         EndMode3D();
-
+        DrawText("DRAW LOOP RUNNING", 30, 40, 24, RED);
+        DrawText(TextFormat("Player: %.2f %.2f %.2f", player.position.x, player.position.y, player.position.z), 30, 70, 20, RED);
+        
         Interface();
 
         DrawMiniMap(player.position);
 
         DrawFPS(10, 10);
+      
 
     EndDrawing();
 }
@@ -146,7 +145,14 @@ void CloseGameLoop(void)
     CloseWindow();
 }
 
-static void UpdateBody(Body *body, float rot, char side, char forward, bool jumpPressed, bool crouchHold)
+static void UpdateGameLoopBody(
+    Body *body,
+    float rot,
+    char side,
+    char forward,
+    bool jumpPressed,
+    bool crouchHold
+)
 {
     Vector2 input = (Vector2){ (float)side, (float)-forward };
 
@@ -183,7 +189,7 @@ static void UpdateBody(Body *body, float rot, char side, char forward, bool jump
     Vector3 desiredDir = (Vector3){
         input.x * right.x + input.y * front.x,
         0.0f,
-        input.x * right.z + input.y * front.z,
+        input.x * right.z + input.y * front.z
     };
 
     body->dir = Vector3Lerp(body->dir, desiredDir, CONTROL * delta);
@@ -200,7 +206,7 @@ static void UpdateBody(Body *body, float rot, char side, char forward, bool jump
 
     if (hvelLength < (MAX_SPEED * 0.01f))
     {
-        hvel = (Vector3){ 0 };
+        hvel = (Vector3){ 0.0f, 0.0f, 0.0f };
     }
 
     float speed = Vector3DotProduct(hvel, body->dir);
@@ -257,10 +263,9 @@ static void UpdateBody(Body *body, float rot, char side, char forward, bool jump
     }
 }
 
-static void UpdateCameraFPS(Camera *camera)
+static void UpdateGameLoopCameraFPS(Camera *camera)
 {
     const Vector3 up = (Vector3){ 0.0f, 1.0f, 0.0f };
-
     const Vector3 targetOffset = (Vector3){ 0.0f, 0.0f, -1.0f };
 
     Vector3 horizontalForward = Vector3RotateByAxisAngle(
@@ -270,7 +275,6 @@ static void UpdateCameraFPS(Camera *camera)
     );
 
     float maxAngleUp = Vector3Angle(up, horizontalForward);
-
     maxAngleUp -= 0.001f;
 
     if (-(lookRotation.y) > maxAngleUp)
@@ -279,7 +283,6 @@ static void UpdateCameraFPS(Camera *camera)
     }
 
     float maxAngleDown = Vector3Angle(Vector3Negate(up), horizontalForward);
-
     maxAngleDown *= -1.0f;
     maxAngleDown += 0.001f;
 
@@ -321,7 +324,6 @@ static void UpdateCameraFPS(Camera *camera)
     const float bobUp = 0.15f;
 
     Vector3 bobbing = Vector3Scale(right, headSin * bobSide);
-
     bobbing.y = fabsf(headCos * bobUp);
 
     camera->position = Vector3Add(
