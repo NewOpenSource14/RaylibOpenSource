@@ -15,6 +15,7 @@ FetchContent_MakeAvailable(raylib)
 add_executable(${PROJECT_NAME}
     src/main.c
     src/map.c
+    src/gameLoop.c
     src/userInterface.c
     src/shootingLogic.c
 )
