@@ -1,13 +1,19 @@
 #include "../../header/userInterface.h"
 #include "../../header/shootingLogic.h"
 #include "../../header/enemy.h"
+#include "../../header/close_enemy.h"
+#include "../../header/boss.h"
 #include "../../header/map.h"
 #include "../../header/player.h"
 
 #include "raylib.h"
 
-struct playerInterfaceInfo
-{
+// 전역 변수 참조
+extern CloseEnemy closeEnemy;
+extern Boss boss; 
+
+// 플레이어 인터페이스 정보 구조체
+struct playerInterfaceInfo {
     int health;
     int ammo;
 };

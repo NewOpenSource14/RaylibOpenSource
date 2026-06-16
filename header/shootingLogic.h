@@ -1,6 +1,9 @@
 #pragma once
 
 #include "enemy.h"
+#include "close_enemy.h"
+#include "boss.h"
+
 #include "raylib.h"
 #include <stdbool.h>
 

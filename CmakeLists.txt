@@ -19,6 +19,8 @@ add_executable(${PROJECT_NAME}
     src/map/map_update.c
 
     src/enemy/enemy.c
+    src/enemy/close_enemy.c
+    src/enemy/boss.c
     src/enemy/fireball.c
 
     src/other/camera.c

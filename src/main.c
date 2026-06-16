@@ -1,4 +1,3 @@
-#include "raylib.h"
 #include "../header/gameLoop.h"
 
 int main(void)
