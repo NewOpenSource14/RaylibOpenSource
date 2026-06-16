@@ -3,7 +3,7 @@
 
 #include "../../header/camera.h"
 #include "../../header/main.h"
-
+#include "../../header/player.h"
 Camera camera = { 0 };
 
 float headTimer = 0.0f;

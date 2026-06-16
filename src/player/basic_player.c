@@ -5,6 +5,7 @@
 #include "../../header/main.h"
 #include "../../header/map.h"
 #include "../../header/camera.h"
+Body player = { 0 };
 
 //얼마나 마우스를 빨리 움직일 것인지
 static Vector2 sensitivity = { 0.001f, 0.001f };
@@ -19,50 +20,7 @@ void PlayerMouseMovement(){
         lookRotation.y += mouseDelta.y * sensitivity.y;
 }
 
-bool CheckMapCollision(Vector3 testPos, float radius)
-{
-    //좌표 평면만 보겠다 2D로 보겠다 이말이다
-    //이것은 어찌보면 플레이어의 포지션이다
-    Vector2 pos2D = { testPos.x, testPos.z };
-    
-    //이거는 각각의 셀을 보는것이다 예를 들어보겠다
-    //어떤 셀에 플레이어와 맵 사이에 길이를 구하는것이다
-    //맵은 (0,0)에서 시작을 하고 실질적으로는 끝은 -8에 있다
-    //마지막 0.5f더하기는 일종에 리버스 가우스화 하는것입니다
-    //2.3이 나오면 3으로 바꿔준다
-    //2.1이 나와도 3으로 그냥 반올림 한다
-    int cellX = (int)((testPos.x - mapPosition.x) / WORLD_SCALE);
-    int cellY = (int)((testPos.z - mapPosition.z) / WORLD_SCALE);
-    
-    //CellY를 주변 즉 내 위치 기준 +1 그리고 -1 분석을 한다 int단위로
-    for (int y = cellY - 1; y <= cellY + 1; y++) {
-	//만약에 MAP을 버서나지 않았다면??
-        if (y >= 0 && y < MAP_HEIGHT) {
-	    //CELLX도 비슷한 양식으로 간다
-            for (int x = cellX - 1; x <= cellX + 1; x++) {
-                if (x >= 0 && x < MAP_WIDTH) {
-		    //만약에 벽이 있다면
-		    int tileType = myNewMap[y][x];
 
-                    if (tileType == TILE_WALL || (tileType == TILE_SHUTTER && shutterOpenTimer < 0.8f)) { 
-                        Rectangle wallRect = { 
-                            mapPosition.x + x * WORLD_SCALE, 
-                            mapPosition.z + y * WORLD_SCALE, 
-                            WORLD_SCALE, WORLD_SCALE 
-		    };
-		    //실제 콜리션을 체크하는 라이브러리 함수인데
-		    //서로 부디치는지 그냥 채크하는것이다
-		    //CheckCollisionCircleRec(현 위치,플레이어의 두깨, 콜리젼 체커)
-			if (CheckCollisionCircleRec(pos2D, radius, wallRect)) {
-			    return true; // 부딪힘!
-			}
-		    }
-                }
-            }
-        }
-    }
-    return false; // 안 부딪힘!
-}
 
 void UpdateBody(Body *body, float rot, bool jumpPressed)
 {

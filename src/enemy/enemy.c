@@ -6,6 +6,7 @@
 #include "raymath.h"
 #include <stdbool.h>
 
+Enemy enemy = { 0 };
 #define ENEMY_RADIUS 0.3f
 
 // main.c 에 있는 맵 데이터 사용
