@@ -158,7 +158,6 @@ void EnemyPlayerSpawnPoint(void)
 {
     EnemeyPlayerSpawnPoint();
 }
-
 static bool IsBlockingTile(int tileType)
 {
     switch (tileType)
@@ -171,10 +170,7 @@ static bool IsBlockingTile(int tileType)
         case TILE_EXIT_SIGN:
         case TILE_WALL_BLUE:
         case TILE_COLUMN_CYAN:
-        case TILE_DESK:
-        case TILE_TABLE:
         case TILE_WALL_FLAG:
-        case TILE_BARREL:
         case TILE_LAMP:
         case TILE_PORTRAIT:
             return true;
@@ -183,7 +179,6 @@ static bool IsBlockingTile(int tileType)
             return false;
     }
 }
-
 static bool IsOpenTileForWallFace(int tileType)
 {
     switch (tileType)
@@ -221,41 +216,48 @@ bool CheckMapCollision(Vector3 testPos, float radius)
                 if (x >= 0 && x < MAP_WIDTH)
                 {
                     int tileType = myNewMap[y][x];
-                    bool solid = IsBlockingTile(tileType);
 
-                    if (solid)
+                    if (!IsBlockingTile(tileType))
                     {
-                        float rectX = mapPosition.x + x * WORLD_SCALE;
-                        float rectZ = mapPosition.z + y * WORLD_SCALE;
-                        float rectW = WORLD_SCALE;
-                        float rectH = WORLD_SCALE;
+                        continue;
+                    }
 
-                        if (tileType == TILE_COVER)
+                    float rectX = mapPosition.x + x * WORLD_SCALE;
+                    float rectZ = mapPosition.z + y * WORLD_SCALE;
+                    float rectW = WORLD_SCALE;
+                    float rectH = WORLD_SCALE;
+
+                    if (tileType == TILE_COVER)
+                    {
+                        rectW = WORLD_SCALE * 0.82f;
+                        rectH = WORLD_SCALE * 0.82f;
+
+                        rectX += (WORLD_SCALE - rectW) / 2.0f;
+                        rectZ += (WORLD_SCALE - rectH) / 2.0f;
+
+                        /*
+                            땅에서는 엄폐물에 막힘.
+                            점프해서 y가 0.45 이상 올라간 상태에서만
+                            엄폐물 위로 진입 가능.
+                        */
+                        float requiredJumpHeight = 0.45f;
+
+                        if (testPos.y >= requiredJumpHeight)
                         {
-                            float jumpableHeight = 0.50f * WORLD_SCALE;
-
-                            if (testPos.y > jumpableHeight)
-                            {
-                                continue;
-                            }
-
-                            rectW = WORLD_SCALE * 0.82f;
-                            rectH = WORLD_SCALE * 0.82f;
-                            rectX += (WORLD_SCALE - rectW) / 2.0f;
-                            rectZ += (WORLD_SCALE - rectH) / 2.0f;
+                            continue;
                         }
+                    }
 
-                        Rectangle wallRect = {
-                            rectX,
-                            rectZ,
-                            rectW,
-                            rectH
-                        };
+                    Rectangle objectRect = {
+                        rectX,
+                        rectZ,
+                        rectW,
+                        rectH
+                    };
 
-                        if (CheckCollisionCircleRec(pos2D, radius, wallRect))
-                        {
-                            return true;
-                        }
+                    if (CheckCollisionCircleRec(pos2D, radius, objectRect))
+                    {
+                        return true;
                     }
                 }
             }
@@ -301,6 +303,18 @@ float GetMapFloorHeight(Vector3 testPos, float radius)
                             rectW,
                             rectH
                         };
+
+                        /*
+                            핵심:
+                            점프하지 않은 상태에서는 엄폐물을 바닥으로 인정하지 않음.
+                            그래서 가까이 가도 저절로 올라가지 않음.
+                        */
+                        float requiredJumpHeight = 0.45f;
+
+                        if (testPos.y < requiredJumpHeight)
+                        {
+                            continue;
+                        }
 
                         if (CheckCollisionCircleRec(pos2D, radius, coverRect))
                         {
@@ -479,23 +493,12 @@ void DrawMap(void)
                     break;
                 }
 
-                case TILE_DESK:
-                {
-                    DrawDesk(tilePos);
-                    break;
-                }
-
-                case TILE_TABLE:
-                {
-                    DrawTable(tilePos);
-                    break;
-                }
-
-                case TILE_BARREL:
-                {
-                    DrawBarrel(tilePos);
-                    break;
-                }
+            case TILE_DESK:
+case TILE_TABLE:
+case TILE_BARREL:
+{
+    break;
+}
 
                 case TILE_LAMP:
                 {
@@ -534,7 +537,7 @@ void DrawMap(void)
 
                 case TILE_ITEM:
                 {
-                    DrawItemMarker(tilePos);
+                  
                     break;
                 }
 
@@ -688,16 +691,33 @@ static void DrawLamp(Vector3 tilePos)
     Vector3 basePos = tilePos;
     basePos.y = mapPosition.y + 0.35f;
 
-    DrawCylinder(basePos, 0.15f * WORLD_SCALE, 0.15f * WORLD_SCALE, 0.7f * WORLD_SCALE, 12, DARKGRAY);
+    // 램프 받침: 진한 초록색
+    DrawCylinder(
+        basePos,
+        0.15f * WORLD_SCALE,
+        0.15f * WORLD_SCALE,
+        0.7f * WORLD_SCALE,
+        12,
+        DARKGREEN
+    );
 
     Vector3 polePos = tilePos;
     polePos.y = mapPosition.y + 1.2f;
 
-    DrawCylinder(polePos, 0.07f * WORLD_SCALE, 0.07f * WORLD_SCALE, 1.6f * WORLD_SCALE, 12, GRAY);
+    // 램프 기둥: 초록색
+    DrawCylinder(
+        polePos,
+        0.07f * WORLD_SCALE,
+        0.07f * WORLD_SCALE,
+        1.6f * WORLD_SCALE,
+        12,
+        GREEN
+    );
 
     Vector3 lightPos = tilePos;
     lightPos.y = mapPosition.y + 2.2f;
 
+    // 불빛은 그대로 노란색 유지
     DrawSphere(lightPos, 0.25f * WORLD_SCALE, YELLOW);
     DrawSphereWires(lightPos, 0.25f * WORLD_SCALE, 12, 12, GOLD);
 }
