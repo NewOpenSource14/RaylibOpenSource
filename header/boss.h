@@ -22,9 +22,11 @@ typedef struct {
     float lifetime;
 } Projectile;
 
+extern Boss finalBoss;
+
 // 함수 선언
 void InitBoss(Boss* boss, Vector3 spawnPos);
-void UpdateBoss(Boss* boss, Vector3 playerPos, float deltaTime);
+void UpdateBoss(Boss* boss, Vector3 playerPos, float* playerHealth, float deltaTime);
 void DrawBoss(Boss* boss);
 void ApplyBossKnockback(Boss* boss, Vector3 force);
 

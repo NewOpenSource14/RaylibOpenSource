@@ -1,3 +1,5 @@
+#include "header/close_enemy.h"
+#include "header/gameLogic.h"
 #include "raylib.h"
 #include "raymath.h"
 
@@ -8,12 +10,15 @@
 #include "../header/map.h"
 #include "../header/enemy.h"
 #include "../header/fireball.h"
+#include "../header/gameLogic.h"
+#include "../header/enemyManager.h"
+#include "../header/boss.h"
 
 #include <math.h>
 #include <stdbool.h>
 
-static const int screenWidth = 1600;
-static const int screenHeight = 900;
+int screenWidth = 1600;
+int screenHeight = 900;
 
 static Camera camera = { 0 };
 
@@ -24,6 +29,8 @@ static float headTimer = 0.0f;
 static float walkLerp = 0.0f;
 static float headLerp = STAND_HEIGHT;
 static Vector2 lean = { 0 };
+
+float delta = 0;
 
 void EnemyPlayerSpawnPoint(void);
 void spawnBullet(Camera3D cam);
@@ -40,10 +47,13 @@ static void UpdateGameLoopBody(
 static void UpdateGameLoopCameraFPS(Camera *camera);
 static bool CheckEnemyBodyCollision(Vector3 testPos, float radius);
 
+enum GameScreen currentScreen = GAMEPLAY;
+
 void InitGameLoop(void)
 {
     InitWindow(screenWidth, screenHeight, "raylib - Wolfenstein Style Map Design");
 
+    InitEnemyManager();
     InitShooting();
     InitFireballs();
 
@@ -89,7 +99,9 @@ void InitGameLoop(void)
 
 void UpdateGameLoop(void)
 {
-    float delta = GetFrameTime();
+    gameLogic(&currentScreen);
+    delta = GetFrameTime();
+    EnemyManager();
 
     Vector2 mouseDelta = GetMouseDelta();
 
@@ -143,31 +155,62 @@ void UpdateGameLoop(void)
         spawnBullet(camera);
     }
 
-    UpdateEnemy(&enemy, player.position, delta);
     UpdateFireballs(delta, &player);
 }
 
 void DrawGameLoop(void)
 {
+    ClearBackground(RAYWHITE);
     BeginDrawing();
+	switch(currentScreen)
+	{
+	    case GAMEPLAY:
+	    {
+		BeginMode3D(camera);
+		MapRender();
+		for (int i = 0; i < 1000; i++)
+		{
+		    if (enemies[i].active)
+		    {
+			DrawEnemy(&enemies[i]);
+		    }
+		}
+		for (int i = 0; i < 1000; i++)
+		{
+		    if (closeEnemy[i].active)
+		    {
+			DrawCloseEnemy(&closeEnemy[i]);
+		    }
+		}
+		if (isBossSpawned && finalBoss.active)
+		{
+		    DrawBoss(&finalBoss);
+		}
+		DrawFireballs();
+		UpdateAndDrawBullets(&enemy);
+		EndMode3D();
+		Interface();
+		DrawFPS(10, 10);
+	    } break;
+	    case ENDING:
+	    {
+		DrawRectangle(0, 0, screenWidth, screenHeight, BLUE);
+		DrawText("You are Dead", 20, 20, 40, PINK);
+		DrawText("PRESS ENTER or TAP to RETURN to TITLE SCREEN", 120, 220, 20, RED);
 
-        ClearBackground(RAYWHITE);
-
-        BeginMode3D(camera);
-
-            MapRender();
-
-            DrawEnemy(&enemy);
-            DrawFireballs();
-
-            UpdateAndDrawBullets(&enemy);
-
-        EndMode3D();
-
-        Interface();
-
-        DrawFPS(10, 10);
-
+	    } break;
+	    case VICTORY:
+	    {
+		// 이겼으니까 화사하게 노란색/금색 계열로 장식!
+		DrawRectangle(0, 0, screenWidth, screenHeight, GOLD); 
+		
+		DrawText(" BOSS DEFEATED! ", 20, 20, 40, MAROON);
+		DrawText("CONGRATULATIONS! YOU WIN THE GAME!", 20, 80, 25, BLACK);
+		
+		DrawText("PRESS ENTER or TAP to PLAY AGAIN", 120, 220, 20, DARKGREEN);
+	    } break;
+	    default: break;
+	}
     EndDrawing();
 }
 

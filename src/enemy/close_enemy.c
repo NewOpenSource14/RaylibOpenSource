@@ -1,7 +1,9 @@
 #include "../../header/close_enemy.h"
 #include "../../header/main.h"
 #include "../../header/player.h"
+#include "../../header/enemyManager.h"
 
+#include "header/map.h"
 #include "raylib.h"
 #include "raymath.h"
 #include <stdbool.h>
@@ -16,41 +18,6 @@ extern Vector3 mapPosition;
 // -----------------------------------------------------------------------------
 // 벽 충돌 검사
 // -----------------------------------------------------------------------------
-static bool CheckCloseEnemyCollision(Vector3 testPos)
-{
-    Vector2 pos2D = { testPos.x, testPos.z };
-    int cellX = (int)((testPos.x - mapPosition.x) / WORLD_SCALE);
-    int cellY = (int)((testPos.z - mapPosition.z) / WORLD_SCALE);
-
-    for (int y = cellY - 1; y <= cellY + 1; y++)
-    {
-        if (y >= 0 && y < MAP_HEIGHT)
-        {
-            for (int x = cellX - 1; x <= cellX + 1; x++)
-            {
-                if (x >= 0 && x < MAP_WIDTH)
-                {
-                    if (myNewMap[y][x] == 1)
-                    {
-                        Rectangle wallRect =
-                        {
-                            mapPosition.x + (x * WORLD_SCALE),
-                            mapPosition.z + (y * WORLD_SCALE),
-                            WORLD_SCALE,
-                            WORLD_SCALE
-                        };
-
-                        if (CheckCollisionCircleRec(pos2D, CLOSE_ENEMY_RADIUS, wallRect))
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-    return false;
-}
 
 // -----------------------------------------------------------------------------
 // 근거리 적 초기화
@@ -87,6 +54,7 @@ void UpdateCloseEnemy(CloseEnemy* enemy, Vector3 playerPos, float* playerHealth,
         enemy->active = false;
         enemy->hitFlashTimer = 0.0f;
         enemy->attackAnimTimer = 0.0f;
+	totalKilledEnemies += 1;
         enemy->isDashing = false;
     }
 
@@ -113,11 +81,11 @@ void UpdateCloseEnemy(CloseEnemy* enemy, Vector3 playerPos, float* playerHealth,
     {
         Vector3 nextPosX = enemy->position;
         nextPosX.x += enemy->knockback.x * deltaTime;
-        if (!CheckCloseEnemyCollision(nextPosX)) enemy->position.x = nextPosX.x;
+        if (!CheckMapCollision(nextPosX, CLOSE_ENEMY_RADIUS)) enemy->position.x = nextPosX.x;
 
         Vector3 nextPosZ = enemy->position;
         nextPosZ.z += enemy->knockback.z * deltaTime;
-        if (!CheckCloseEnemyCollision(nextPosZ)) enemy->position.z = nextPosZ.z;
+        if (!CheckMapCollision(nextPosZ, CLOSE_ENEMY_RADIUS)) enemy->position.z = nextPosZ.z;
 
         float friction = 1.0f - (10.0f * deltaTime);
         if (friction < 0.0f) friction = 0.0f;
@@ -156,12 +124,12 @@ void UpdateCloseEnemy(CloseEnemy* enemy, Vector3 playerPos, float* playerHealth,
             // X축 이동
             Vector3 nextPosX = enemy->position;
             nextPosX.x += direction.x * currentSpeed * deltaTime;
-            if (!CheckCloseEnemyCollision(nextPosX)) enemy->position.x = nextPosX.x;
+            if (!CheckMapCollision(nextPosX, CLOSE_ENEMY_RADIUS)) enemy->position.x = nextPosX.x;
 
             // Z축 이동
             Vector3 nextPosZ = enemy->position;
             nextPosZ.z += direction.z * currentSpeed * deltaTime;
-            if (!CheckCloseEnemyCollision(nextPosZ)) enemy->position.z = nextPosZ.z;
+            if (!CheckMapCollision(nextPosZ, CLOSE_ENEMY_RADIUS)) enemy->position.z = nextPosZ.z;
         }
         // 공격 사정거리 "안"에 들어왔고, 공격 쿨다운이 끝났을 때
         else if (enemy->attackTimer <= 0.0f)

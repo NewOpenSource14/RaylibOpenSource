@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include "../../header/fireball.h"
 #include "../../header/main.h"
@@ -35,29 +36,7 @@ extern Vector3 mapPosition;
 // -----------------------------------------------------------------------------
 static bool CheckFireballWallCollision(Vector3 pos)
 {
-    int cellX = (int)((pos.x - mapPosition.x) / WORLD_SCALE);
-    int cellY = (int)((pos.z - mapPosition.z) / WORLD_SCALE);
-    // 맵 밖
-    if (
-        cellX < 0
-        ||
-        cellX >= MAP_WIDTH
-        ||
-        cellY < 0
-        ||
-        cellY >= MAP_HEIGHT
-    )
-    {
-        return true;
-    }
-
-    // 벽 충돌
-    if (myNewMap[cellY][cellX] == 1)
-    {
-        return true;
-    }
-
-    return false;
+    return CheckMapCollision(pos, 0.2f);
 }
 
 // -----------------------------------------------------------------------------
@@ -163,6 +142,8 @@ void UpdateFireballs(float deltaTime, Body* player)
         if (!fireballs[i].active)
             continue;
 
+	Vector3 oldPos = fireballs[i].position;
+
         fireballs[i].position.x +=
             fireballs[i].direction.x
             *
@@ -184,14 +165,17 @@ void UpdateFireballs(float deltaTime, Body* player)
             *
             deltaTime;
 
+	Vector3 frontPos = {
+            fireballs[i].position.x + fireballs[i].direction.x * 0.2f,
+            fireballs[i].position.y,
+            fireballs[i].position.z + fireballs[i].direction.z * 0.2f
+        };
+
         // 벽 충돌 시 제거
-        if (
-            CheckFireballWallCollision(
-                fireballs[i].position
-            )
-        )
+	if (!HasLineOfSight(oldPos, frontPos))
         {
             fireballs[i].active = false;
+            continue; 
         }
 	if (CHeckFireBallHitPlayer(fireballs[i].position, player)) {
 	    printf("player got hit");

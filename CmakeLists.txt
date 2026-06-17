@@ -22,12 +22,14 @@ add_executable(${PROJECT_NAME}
     src/enemy/close_enemy.c
     src/enemy/boss.c
     src/enemy/fireball.c
+    src/enemy/enemyManager.c
 
     src/other/camera.c
 
     src/player/userInterface.c
     src/player/shootingLogic.c
     src/player/basic_player.c
+    src/other/gameLogic.c
 )
 
 if(WIN32)

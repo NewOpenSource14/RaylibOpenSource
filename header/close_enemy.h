@@ -26,6 +26,8 @@ typedef struct CloseEnemy
 
 } CloseEnemy;
 
+extern CloseEnemy closeEnemy[1000];
+
 // 근거리 적 초기화
 void InitCloseEnemy(CloseEnemy* enemy, Vector3 startPos);
 

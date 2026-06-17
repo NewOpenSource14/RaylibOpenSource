@@ -1,15 +1,14 @@
 #include "../../header/userInterface.h"
 #include "../../header/shootingLogic.h"
 #include "../../header/enemy.h"
-#include "../../header/close_enemy.h"
 #include "../../header/boss.h"
 #include "../../header/map.h"
 #include "../../header/player.h"
+#include "../../header/enemyManager.h"
 
 #include "raylib.h"
 
 // 전역 변수 참조
-extern CloseEnemy closeEnemy;
 extern Boss boss; 
 
 // 플레이어 인터페이스 정보 구조체
@@ -92,17 +91,11 @@ static void DrawPlayerInterface(struct playerInterfaceInfo playerInfo)
     playerInfo.health = (int)player.health;
     playerInfo.ammo = total_bullets;
 
-    DrawText(TextFormat("Health: %d", playerInfo.health), 10, 40, 20, BLUE);
+    DrawText(TextFormat("Health: %d", playerInfo.health), 15, 40, 20, RED);
     DrawText(TextFormat("Ammo: %d", playerInfo.ammo), 10, 70, 20, BLUE);
 
-    if (enemy.active)
-    {
-        DrawText("Enemy AI Active", 10, 100, 20, BLUE);
-    }
-    else
-    {
-        DrawText("Enemy Down", 10, 100, 20, RED);
-    }
+    DrawText(TextFormat("Enemy Killed: %d", totalKilledEnemies), 10, 90, 20, BLUE);
+
 }
 
 void SpawnMiniMap(void)

@@ -12,11 +12,12 @@ typedef struct Enemy
     bool active;
     Vector3 knockback;
     float hitFlashTimer;
+    float shootTimer;
 
 } Enemy;
 
 extern Enemy enemy;
-
+extern Enemy enemies[1000];
 // 적 생성
 void InitEnemy(Enemy* enemy, Vector3 startPos);
 

@@ -1,7 +1,9 @@
+#include "header/map.h"
 #include "raylib.h"
 #include "raymath.h"
 #include "../../header/boss.h"
 #include "../../header/main.h"
+#include <stdio.h>
 
 #define MAX_BULLETS 16
 #define MAX_IMPACTS 32
@@ -38,40 +40,6 @@ static float hitFlashTimer = 0.0f;
 // =========================
 extern int myNewMap[MAP_HEIGHT][MAP_WIDTH];
 extern Vector3 mapPosition;
-
-// =========================
-// enemy 스타일 collision (중요)
-// =========================
-static bool CheckBossCollision(Vector3 testPos)
-{
-    Vector2 pos2D = { testPos.x, testPos.z };
-
-    int cellX = (int)((testPos.x - mapPosition.x) / WORLD_SCALE);
-    int cellY = (int)((testPos.z - mapPosition.z) / WORLD_SCALE);
-
-    for (int y = cellY - 1; y <= cellY + 1; y++) {
-        if (y >= 0 && y < MAP_HEIGHT) {
-            for (int x = cellX - 1; x <= cellX + 1; x++) {
-                if (x >= 0 && x < MAP_WIDTH) {
-                    if (myNewMap[y][x] == 1) {
-
-                        Rectangle wallRect = {
-                            mapPosition.x + (x * WORLD_SCALE),
-                            mapPosition.z + (y * WORLD_SCALE),
-                            WORLD_SCALE,
-                            WORLD_SCALE
-                        };
-
-                        if (CheckCollisionCircleRec(pos2D, 0.6f, wallRect))
-                            return true;
-                    }
-                }
-            }
-        }
-    }
-
-    return false;
-}
 
 // =========================
 // impact spawn
@@ -125,7 +93,7 @@ void ApplyBossKnockback(Boss* boss, Vector3 force)
 // =========================
 // update
 // =========================
-void UpdateBoss(Boss* boss, Vector3 playerPos, float dt)
+void UpdateBoss(Boss* boss, Vector3 playerPos, float* playerHealth, float dt)
 {
     if (!boss->active) return;
 
@@ -143,13 +111,13 @@ void UpdateBoss(Boss* boss, Vector3 playerPos, float dt)
         Vector3 nextX = boss->position;
         nextX.x += boss->knockback.x * dt;
 
-        if (!CheckBossCollision(nextX))
+        if (!CheckMapCollision(nextX,0.6f))
             boss->position.x = nextX.x;
 
         Vector3 nextZ = boss->position;
         nextZ.z += boss->knockback.z * dt;
 
-        if (!CheckBossCollision(nextZ))
+        if (!CheckMapCollision(nextZ,0.6f))
             boss->position.z = nextZ.z;
 
         float friction = 1.0f - (8.0f * dt);
@@ -172,13 +140,13 @@ void UpdateBoss(Boss* boss, Vector3 playerPos, float dt)
             Vector3 nextX = boss->position;
             nextX.x += dir.x * 1.5f * dt;
 
-            if (!CheckBossCollision(nextX))
+            if (!CheckMapCollision(nextX, 0.6f))
                 boss->position.x = nextX.x;
 
             Vector3 nextZ = boss->position;
             nextZ.z += dir.z * 1.5f * dt;
 
-            if (!CheckBossCollision(nextZ))
+            if (!CheckMapCollision(nextZ, 0.6f))
                 boss->position.z = nextZ.z;
         }
     }
@@ -229,8 +197,18 @@ void UpdateBoss(Boss* boss, Vector3 playerPos, float dt)
                 bullets[i].position,
                 Vector3Scale(bullets[i].velocity, dt)
             );
+	    Vector2 bullet2D = { bullets[i].position.x, bullets[i].position.z };
+	    Vector2 player2D = { playerPos.x, playerPos.z };
 
-            if (CheckBossCollision(bullets[i].position))
+	    if (Vector2Distance(bullet2D, player2D) < 1.0f)
+	    {
+		*playerHealth -= 15.0f;
+		bullets[i].active = false;
+		printf("보스 총알 맞음 그리고 남은 피: %.1f\n", *playerHealth);
+		continue;
+	    }
+
+            if (CheckMapCollision(bullets[i].position, 0.6f))
             {
                 SpawnImpact(bullets[i].position);
                 bullets[i].active = false;

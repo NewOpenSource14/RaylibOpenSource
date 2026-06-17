@@ -1,35 +1,26 @@
 #include "raylib.h"
-#include "raymath.h"
 #include "../../header/map.h"
 #include "../../header/player.h"
-#include "../../header/enemy.h"
+#include "../../header/enemyManager.h"
 #include <stdbool.h>
 
 
-// 留듭씠 ?뺥솗???대뵒???꾩튂??寃껋씤吏??????댁슜?대떎.
-// 留듭쓣 ?먯젏 湲곗? 以묒븰???ㅻ룄濡?諛곗튂?쒕떎.
  Vector3 mapPosition = {
     -((MAP_WIDTH * WORLD_SCALE) / 2.0f),
     0.0f,
     -((MAP_HEIGHT * WORLD_SCALE) / 2.0f)
 };
 
-// ?뷀꽣 愿???꾩뿭 蹂??
-// ?ㅻⅨ ?뚯씪?먯꽌 李몄“?????덉쑝誘濡??좎??쒕떎.
 bool isShutterOpen = false;
 float shutterOpenTimer = 0.0f;
 float shutterHoldTimer = 0.0f;
 
-// map 諛곗뿴 援ъ“
-// ??2李⑥썝 諛곗뿴???ㅼ젣 留??ㅺ퀎????븷???쒕떎.
-// 0? ?대룞 怨듦컙, 10? 湲곕뫁, 11? ?꾪룓臾쇱씠??
-// 理쒖쥌 留듭? Wolfenstein??諛?蹂듬룄 援ъ“? 以묒븰 ?꾪닾??援ъ“瑜??욎? ?뺥깭?대떎.
 int myNewMap[MAP_HEIGHT][MAP_WIDTH] = {
     {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 
     {1, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 1},
 
-    {1, 13, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 13, 1},
+    {1, 13, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 13, 1},
 
     {1, 13, 0, 21, 0, 0, 3, 0, 13, 0, 15, 0, 2, 0, 20, 20, 0, 2, 0, 15, 0, 13, 0, 18, 0, 0, 3, 0, 13, 1},
 
@@ -47,11 +38,11 @@ int myNewMap[MAP_HEIGHT][MAP_WIDTH] = {
 
     {1, 13, 0, 13, 0, 0, 0, 0, 13, 5, 0, 11, 0, 0, 16, 16, 0, 0, 11, 0, 5, 13, 0, 0, 0, 0, 13, 0, 13, 1},
 
-    {1, 13, 0, 13, 0, 3, 0, 0, 13, 5, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 5, 13, 0, 0, 3, 0, 13, 0, 13, 1},
+    {1, 13, 0, 13, 0, 3, 0, 0, 13, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 13, 0, 0, 3, 0, 13, 0, 13, 1},
 
     {1, 13, 0, 13, 13, 13, 0, 13, 13, 5, 5, 5, 17, 17, 0, 0, 17, 17, 5, 5, 5, 13, 13, 13, 0, 13, 13, 0, 13, 1},
 
-    {1, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 1},
+    {1, 13, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 13, 1},
 
     {1, 13, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13, 0, 0, 13, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 13, 1},
 
@@ -121,10 +112,10 @@ Vector3 GetPlayerStartPosition(void)
     return (Vector3){ mapPosition.x + WORLD_SCALE, 0.0f, mapPosition.z + WORLD_SCALE };
 }
 
-void EnemeyPlayerSpawnPoint(void)
+void EnemyPlayerSpawnPoint(void)
 {
     bool playerSpawned = false;
-    bool enemySpawned = false;
+    spawnPointCount = 0;
 
     for (int y = 0; y < MAP_HEIGHT; y++)
     {
@@ -137,10 +128,13 @@ void EnemeyPlayerSpawnPoint(void)
                 player.position = (Vector3){ spawnPos.x, 0.0f, spawnPos.z };
                 playerSpawned = true;
             }
-            else if (myNewMap[y][x] == TILE_ENEMY && !enemySpawned)
+            else if (myNewMap[y][x] == TILE_ENEMY)
             {
-                InitEnemy(&enemy, (Vector3){ spawnPos.x, 1.5f, spawnPos.z });
-                enemySpawned = true;
+		if (spawnPointCount < 20)
+                {
+                    enemySpawnPoints[spawnPointCount] = (Vector3){ spawnPos.x, 1.5f, spawnPos.z };
+                    spawnPointCount++;
+                }
             }
         }
     }
@@ -149,14 +143,6 @@ void EnemeyPlayerSpawnPoint(void)
     {
         player.position = GetPlayerStartPosition();
     }
-}
-
-// ?ㅽ? ?녿뒗 ?대쫫??媛숈씠 ?쒓났?쒕떎.
-// 湲곗〈 肄붾뱶媛 EnemeyPlayerSpawnPoint瑜??몄텧?대룄 ?섍퀬,
-// ??肄붾뱶媛 EnemyPlayerSpawnPoint瑜??몄텧?대룄 ?쒕떎.
-void EnemyPlayerSpawnPoint(void)
-{
-    EnemeyPlayerSpawnPoint();
 }
 
 static bool IsBlockingTile(int tileType)

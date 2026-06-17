@@ -1,7 +1,9 @@
 #include "../../header/enemy.h"
 #include "../../header/fireball.h"
 #include "../../header/main.h"
+#include "../../header/enemyManager.h"
 
+#include "header/map.h"
 #include "raylib.h"
 #include "raymath.h"
 #include <stdbool.h>
@@ -12,58 +14,6 @@ Enemy enemy = { 0 };
 // main.c 에 있는 맵 데이터 사용
 extern int myNewMap[MAP_HEIGHT][MAP_WIDTH];
 extern Vector3 mapPosition;
-
-// -----------------------------------------------------------------------------
-// 벽 충돌 검사
-// -----------------------------------------------------------------------------
-static bool CheckEnemyCollision(Vector3 testPos)
-{
-    Vector2 pos2D =
-    {
-        testPos.x,
-        testPos.z
-    };
-
-    int cellX = (int)((testPos.x - mapPosition.x) / WORLD_SCALE);
-    int cellY = (int)((testPos.z - mapPosition.z) / WORLD_SCALE);
-
-    for (int y = cellY - 1; y <= cellY + 1; y++)
-    {
-        if (y >= 0 && y < MAP_HEIGHT)
-        {
-            for (int x = cellX - 1; x <= cellX + 1; x++)
-            {
-                if (x >= 0 && x < MAP_WIDTH)
-                {
-                    if (myNewMap[y][x] == 1)
-                    {
-                        Rectangle wallRect =
-                        {
-                            mapPosition.x + (x * WORLD_SCALE),
-                            mapPosition.z + (y * WORLD_SCALE),
-                            WORLD_SCALE,
-                            WORLD_SCALE
-                        };
-
-                        if (
-                            CheckCollisionCircleRec(
-                                pos2D,
-                                ENEMY_RADIUS,
-                                wallRect
-                            )
-                        )
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    return false;
-}
-
 // -----------------------------------------------------------------------------
 // 적 초기화
 // -----------------------------------------------------------------------------
@@ -77,6 +27,7 @@ void InitEnemy(
     enemy->speed = 2.0f;
     enemy->detectRange = 15.0f * WORLD_SCALE;
     enemy->active = true;
+    enemy->shootTimer = 0.0f;
 
     // 추가된 변수 초기화
     enemy->knockback = (Vector3){ 0.0f, 0.0f, 0.0f };
@@ -96,6 +47,7 @@ void UpdateEnemy(
     if (enemy->health <= 0)
     {
         enemy->active = false;
+	totalKilledEnemies += 1;
         enemy->hitFlashTimer = 0.0f; 
     }
 
@@ -114,12 +66,12 @@ void UpdateEnemy(
         // X축 넛백 이동
         Vector3 nextPosX = enemy->position;
         nextPosX.x += enemy->knockback.x * deltaTime;
-        if (!CheckEnemyCollision(nextPosX)) enemy->position.x = nextPosX.x;
+        if (!CheckMapCollision(nextPosX, ENEMY_RADIUS)) enemy->position.x = nextPosX.x;
 
         // Z축 넛백 이동
         Vector3 nextPosZ = enemy->position;
         nextPosZ.z += enemy->knockback.z * deltaTime;
-        if (!CheckEnemyCollision(nextPosZ)) enemy->position.z = nextPosZ.z;
+        if (!CheckMapCollision(nextPosZ, ENEMY_RADIUS)) enemy->position.z = nextPosZ.z;
 
         // 마찰력 적용 (매 초마다 자연스럽게 스르륵 멈춤)
         float friction = 1.0f - (10.0f * deltaTime); 
@@ -159,7 +111,7 @@ void UpdateEnemy(
             *
             deltaTime;
 
-        if (!CheckEnemyCollision(nextPosX))
+        if (!CheckMapCollision(nextPosX, ENEMY_RADIUS))
         {
             enemy->position.x =
                 nextPosX.x;
@@ -178,7 +130,7 @@ void UpdateEnemy(
             *
             deltaTime;
 
-        if (!CheckEnemyCollision(nextPosZ))
+        if (!CheckMapCollision(nextPosZ, ENEMY_RADIUS))
         {
             enemy->position.z =
                 nextPosZ.z;
@@ -188,33 +140,19 @@ void UpdateEnemy(
     // -------------------------------------------------------------------------
     // 불덩이 공격
     // -------------------------------------------------------------------------
-    static float shootTimer = 0.0f;
-    shootTimer += deltaTime;
+    enemy->shootTimer += deltaTime; 
 
-    if (
-        distance < enemy->detectRange
-        &&
-        shootTimer >= 2.0f
-        &&
-        HasLineOfSight(
-            enemy->position,
-            playerPos
-        )
-    )
+    if (distance < enemy->detectRange && enemy->shootTimer >= 2.0f && HasLineOfSight(enemy->position, playerPos))
     {
-        Vector3 fireballStart =
-        {
+        Vector3 fireballStart = {
             enemy->position.x,
             enemy->position.y + 1.0f,
             enemy->position.z
         };
 
-        SpawnFireball(
-            fireballStart,
-            playerPos
-        );
+        SpawnFireball(fireballStart, playerPos);
 
-        shootTimer = 0.0f;
+        enemy->shootTimer = 0.0f;
     }
 }
 
