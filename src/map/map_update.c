@@ -1,71 +1,60 @@
 #include "raylib.h"
-#include "raymath.h"
-#include "../header/mapDesign.h"
+#include "../../header/map.h"
+#include "../../header/player.h"
+#include "../../header/enemyManager.h"
+#include <stdbool.h>
 
-// 맵이 정확히 어디에 위치할 것인지에 대한 내용이다.
-//  
-//  맵을 원점 기준 중앙에 오도록 배치한다.
-Vector3 mapPosition = {
+
+ Vector3 mapPosition = {
     -((MAP_WIDTH * WORLD_SCALE) / 2.0f),
     0.0f,
     -((MAP_HEIGHT * WORLD_SCALE) / 2.0f)
 };
 
-// 맵 배열을 보기 쉽게 작성하기 위한 약어이다.
-// 숫자만 쓰면 13, 15, 18이 무엇인지 바로 알기 어렵기 때문에,
-// 맵디자인 코드에서는 약어를 사용한다.
-#define E   TILE_EMPTY
-#define W   TILE_WALL
-#define EN  TILE_ENEMY
-#define IT  TILE_ITEM
-#define SH  TILE_SHUTTER
-#define WD  TILE_WALL_DECOR
-#define WK  TILE_WALL_DARK
-#define G   TILE_GOAL
-#define PL  TILE_PILLAR
-#define CV  TILE_COVER
-#define EX  TILE_EXIT_SIGN
-#define WB  TILE_WALL_BLUE
-#define CY  TILE_COLUMN_CYAN
-#define DS  TILE_DESK
-#define TB  TILE_TABLE
-#define WF  TILE_WALL_FLAG
-#define BR  TILE_BARREL
-#define LP  TILE_LAMP
-#define PT  TILE_PORTRAIT
-#define PS  TILE_PLAYER_START
+bool isShutterOpen = false;
+float shutterOpenTimer = 0.0f;
+float shutterHoldTimer = 0.0f;
 
-// map.c 배열 구조
-// 이 2차원 배열이 실제 맵 설계도 역할을 한다.
-// 0은 이동 공간, 10은 기둥, 11은 엄폐물이다.
-// 최종 맵은 Wolfenstein식 방-복도 구조와 중앙 전투장 구조를 섞은 형태이다.
-    int myMap[MAP_HEIGHT][MAP_WIDTH] = {
-    {W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W},
-    {W, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, W},
+int myNewMap[MAP_HEIGHT][MAP_WIDTH] = {
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 
-    {W, WB, E, E, E, E, E, E, WB, E, E, E, E, E, E, E, E, E, E, E, E, WB, E, E, E, E, E, E, WB, W},
-    {W, WB, E, PS, E, E, IT, E, WB, E, DS, E, EN, E, PT, PT, E, EN, E, DS, E, WB, E, BR, E, E, IT, E, WB, W},
-    {W, WB, E, E, E, CV, E, E, E, E, E, E, E, E, CV, CV, E, E, E, E, E, E, E, E, CV, E, E, E, WB, W},
+    {1, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 1},
 
-    {W, WB, WB, WB, E, WB, WB, WB, WB, WB, WB, WB, WB, WB, E, E, WB, WB, WB, WB, WB, WB, WB, WB, E, WB, WB, WB, WB, W},
-    {W, WB, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, WB, W},
+    {1, 13, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 13, 1},
 
-    {W, WB, E, WB, WB, WB, WB, WB, WB, WD, WD, WD, WF, WF, E, E, WF, WF, WD, WD, WD, WB, WB, WB, WB, WB, WB, E, WB, W},
-    {W, WB, E, WB, E, E, E, E, WB, WD, E, CV, E, E, PL, PL, E, E, CV, E, WD, WB, E, E, E, E, WB, E, WB, W},
-    {W, WB, E, E, E, LP, E, E, E, E, E, E, E, EN, E, E, EN, E, E, E, E, E, E, E, LP, E, E, E, WB, W},
-    {W, WB, E, WB, E, E, E, E, WB, WD, E, CV, E, E, TB, TB, E, E, CV, E, WD, WB, E, E, E, E, WB, E, WB, W},
-    {W, WB, E, WB, E, IT, E, E, WB, WD, E, E, E, EN, E, E, EN, E, E, E, WD, WB, E, E, IT, E, WB, E, WB, W},
-    {W, WB, E, WB, WB, WB, E, WB, WB, WD, WD, WD, WF, WF, E, E, WF, WF, WD, WD, WD, WB, WB, WB, E, WB, WB, E, WB, W},
+    {1, 13, 0, 21, 0, 0, 3, 0, 13, 0, 15, 0, 2, 0, 20, 20, 0, 2, 0, 15, 0, 13, 0, 18, 0, 0, 3, 0, 13, 1},
 
-    {W, WB, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, WB, W},
+    {1, 13, 0, 0, 0, 11, 0, 0, 0, 0, 0, 0, 0, 0, 11, 11, 0, 0, 0, 0, 0, 0, 0, 0, 11, 0, 0, 0, 13, 1},
 
-    {W, WB, E, E, E, E, E, E, WB, E, E, E, E, WB, E, E, WB, E, E, E, E, WB, E, E, E, E, E, E, WB, W},
-    {W, WB, E, BR, E, CV, E, E, WB, E, DS, E, EN, WB, E, E, WB, EN, E, DS, E, WB, E, E, CV, E, BR, E, WB, W},
-    {W, WB, E, E, E, E, IT, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, E, IT, E, E, E, E, WB, W},
+    {1, 13, 13, 13, 0, 13, 13, 13, 13, 13, 13, 13, 13, 13, 0, 0, 13, 13, 13, 13, 13, 13, 13, 13, 0, 13, 13, 13, 13, 1},
 
-    {W, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, EX, E, G, E, EX, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, W},
-    {W, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, EX, EX, EX, EX, EX, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, WB, W},
-    {W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W, W}
+    {1, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 13, 1},
+
+    {1, 13, 0, 13, 13, 13, 13, 13, 13, 5, 5, 5, 17, 17, 0, 0, 17, 17, 5, 5, 5, 13, 13, 13, 13, 13, 13, 0, 13, 1},
+
+    {1, 13, 0, 13, 0, 0, 0, 0, 13, 5, 0, 11, 0, 0, 10, 10, 0, 0, 11, 0, 5, 13, 0, 0, 0, 0, 13, 0, 13, 1},
+
+    {1, 13, 0, 0, 0, 19, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 19, 0, 0, 0, 13, 1},
+
+    {1, 13, 0, 13, 0, 0, 0, 0, 13, 5, 0, 11, 0, 0, 16, 16, 0, 0, 11, 0, 5, 13, 0, 0, 0, 0, 13, 0, 13, 1},
+
+    {1, 13, 0, 13, 0, 3, 0, 0, 13, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 13, 0, 0, 3, 0, 13, 0, 13, 1},
+
+    {1, 13, 0, 13, 13, 13, 0, 13, 13, 5, 5, 5, 17, 17, 0, 0, 17, 17, 5, 5, 5, 13, 13, 13, 0, 13, 13, 0, 13, 1},
+
+    {1, 13, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 13, 1},
+
+    {1, 13, 0, 0, 0, 0, 0, 0, 13, 0, 0, 0, 0, 13, 0, 0, 13, 0, 0, 0, 0, 13, 0, 0, 0, 0, 0, 0, 13, 1},
+
+    {1, 13, 0, 18, 0, 11, 0, 0, 13, 0, 15, 0, 2, 13, 0, 0, 13, 2, 0, 15, 0, 13, 0, 0, 11, 0, 18, 0, 13, 1},
+
+    {1, 13, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 13, 1},
+
+    {1, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 12, 0, 9, 0, 12, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 1},
+
+    {1, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 12, 12, 12, 12, 12, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 13, 1},
+
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
 };
 
 static Vector3 GetTileCenterWorld(int x, int y);
@@ -102,7 +91,7 @@ int GetMapTileSafe(int x, int y)
         return TILE_WALL;
     }
 
-    return myMap[y][x];
+    return myNewMap[y][x];
 }
 
 Vector3 GetPlayerStartPosition(void)
@@ -111,7 +100,7 @@ Vector3 GetPlayerStartPosition(void)
     {
         for (int x = 0; x < MAP_WIDTH; x++)
         {
-            if (myMap[y][x] == TILE_PLAYER_START)
+            if (myNewMap[y][x] == TILE_PLAYER_START)
             {
                 Vector3 startPosition = GetTileCenterWorld(x, y);
                 startPosition.y = 0.0f;
@@ -120,15 +109,44 @@ Vector3 GetPlayerStartPosition(void)
         }
     }
 
-    // 만약 TILE_PLAYER_START를 찾지 못하면 기본 위치로 시작한다.
     return (Vector3){ mapPosition.x + WORLD_SCALE, 0.0f, mapPosition.z + WORLD_SCALE };
+}
+
+void EnemyPlayerSpawnPoint(void)
+{
+    bool playerSpawned = false;
+    spawnPointCount = 0;
+
+    for (int y = 0; y < MAP_HEIGHT; y++)
+    {
+        for (int x = 0; x < MAP_WIDTH; x++)
+        {
+            Vector3 spawnPos = GetTileCenterWorld(x, y);
+
+            if (myNewMap[y][x] == TILE_PLAYER_START && !playerSpawned)
+            {
+                player.position = (Vector3){ spawnPos.x, 0.0f, spawnPos.z };
+                playerSpawned = true;
+            }
+            else if (myNewMap[y][x] == TILE_ENEMY)
+            {
+		if (spawnPointCount < 20)
+                {
+                    enemySpawnPoints[spawnPointCount] = (Vector3){ spawnPos.x, 1.5f, spawnPos.z };
+                    spawnPointCount++;
+                }
+            }
+        }
+    }
+
+    if (!playerSpawned)
+    {
+        player.position = GetPlayerStartPosition();
+    }
 }
 
 static bool IsBlockingTile(int tileType)
 {
-    // 충돌 처리
-    // 벽, 기둥, 책상, 테이블, 드럼통 등을 충돌 타일로 처리한다.
-    // 플레이어가 오브젝트를 뚫고 지나가지 못하도록 설계한다.
     switch (tileType)
     {
         case TILE_WALL:
@@ -154,8 +172,6 @@ static bool IsBlockingTile(int tileType)
 
 static bool IsOpenTileForWallFace(int tileType)
 {
-    // 벽의 옆면 패널을 그릴지 판단하는 함수이다.
-    // 주변이 빈 공간이나 오브젝트이면 벽의 장식 면이 보이게 한다.
     switch (tileType)
     {
         case TILE_EMPTY:
@@ -177,15 +193,11 @@ static bool IsOpenTileForWallFace(int tileType)
 
 bool CheckMapCollision(Vector3 testPos, float radius)
 {
-    // 좌표 평면만 보겠다 2D로 보겠다 이말이다.
-    // 이것은 어찌보면 플레이어의 포지션이다.
     Vector2 pos2D = { testPos.x, testPos.z };
 
-    // 현재 플레이어가 어느 맵 셀에 있는지 계산한다.
     int cellX = (int)((testPos.x - mapPosition.x) / WORLD_SCALE);
     int cellY = (int)((testPos.z - mapPosition.z) / WORLD_SCALE);
 
-    // 플레이어 주변 3x3 타일만 검사해서 충돌 처리를 가볍게 한다.
     for (int y = cellY - 1; y <= cellY + 1; y++)
     {
         if (y >= 0 && y < MAP_HEIGHT)
@@ -194,43 +206,50 @@ bool CheckMapCollision(Vector3 testPos, float radius)
             {
                 if (x >= 0 && x < MAP_WIDTH)
                 {
-                    int tileType = myMap[y][x];
-                    bool solid = IsBlockingTile(tileType);
+                    int tileType = myNewMap[y][x];
 
-                    if (solid)
+                    if (!IsBlockingTile(tileType))
                     {
-                        float rectX = mapPosition.x + x * WORLD_SCALE;
-                        float rectZ = mapPosition.z + y * WORLD_SCALE;
-                        float rectW = WORLD_SCALE;
-                        float rectH = WORLD_SCALE;
+                        continue;
+                    }
 
-                        // 엄폐물은 몸을 가릴 정도로 보이지만, 점프하면 넘어갈 수 있도록 따로 처리한다.
-                        if (tileType == TILE_COVER)
+                    float rectX = mapPosition.x + x * WORLD_SCALE;
+                    float rectZ = mapPosition.z + y * WORLD_SCALE;
+                    float rectW = WORLD_SCALE;
+                    float rectH = WORLD_SCALE;
+
+                    if (tileType == TILE_COVER)
+                    {
+                        rectW = WORLD_SCALE * 0.82f;
+                        rectH = WORLD_SCALE * 0.82f;
+
+                        rectX += (WORLD_SCALE - rectW) / 2.0f;
+                        rectZ += (WORLD_SCALE - rectH) / 2.0f;
+
+                        /*
+                            엄폐물 높이.
+                            플레이어가 이 높이 근처까지 점프했을 때만
+                            엄폐물 위로 진입 가능하게 한다.
+                        */
+                        float coverHeight = 0.68f * WORLD_SCALE;
+                        float requiredJumpHeight = coverHeight - 0.25f;
+
+                        if (testPos.y >= requiredJumpHeight)
                         {
-                            float jumpableHeight = 0.50f * WORLD_SCALE;
-
-                            if (testPos.y > jumpableHeight)
-                            {
-                                continue;
-                            }
-
-                            rectW = WORLD_SCALE * 0.82f;
-                            rectH = WORLD_SCALE * 0.82f;
-                            rectX += (WORLD_SCALE - rectW) / 2.0f;
-                            rectZ += (WORLD_SCALE - rectH) / 2.0f;
+                            continue;
                         }
+                    }
 
-                        Rectangle wallRect = {
-                            rectX,
-                            rectZ,
-                            rectW,
-                            rectH
-                        };
+                    Rectangle objectRect = {
+                        rectX,
+                        rectZ,
+                        rectW,
+                        rectH
+                    };
 
-                        if (CheckCollisionCircleRec(pos2D, radius, wallRect))
-                        {
-                            return true;
-                        }
+                    if (CheckCollisionCircleRec(pos2D, radius, objectRect))
+                    {
+                        return true;
                     }
                 }
             }
@@ -239,19 +258,81 @@ bool CheckMapCollision(Vector3 testPos, float radius)
 
     return false;
 }
+float GetMapFloorHeight(Vector3 testPos, float radius)
+{
+    float floorHeight = 0.0f;
+
+    Vector2 pos2D = { testPos.x, testPos.z };
+
+    int cellX = (int)((testPos.x - mapPosition.x) / WORLD_SCALE);
+    int cellY = (int)((testPos.z - mapPosition.z) / WORLD_SCALE);
+
+    for (int y = cellY - 1; y <= cellY + 1; y++)
+    {
+        if (y >= 0 && y < MAP_HEIGHT)
+        {
+            for (int x = cellX - 1; x <= cellX + 1; x++)
+            {
+                if (x >= 0 && x < MAP_WIDTH)
+                {
+                    int tileType = myNewMap[y][x];
+
+                    if (tileType == TILE_COVER)
+                    {
+                        float rectW = WORLD_SCALE * 0.82f;
+                        float rectH = WORLD_SCALE * 0.82f;
+
+                        float rectX = mapPosition.x + x * WORLD_SCALE;
+                        float rectZ = mapPosition.z + y * WORLD_SCALE;
+
+                        rectX += (WORLD_SCALE - rectW) / 2.0f;
+                        rectZ += (WORLD_SCALE - rectH) / 2.0f;
+
+                        Rectangle coverRect = {
+                            rectX,
+                            rectZ,
+                            rectW,
+                            rectH
+                        };
+
+                        float coverHeight = 0.68f * WORLD_SCALE;
+                        float requiredJumpHeight = coverHeight - 0.25f;
+
+                        /*
+                            핵심:
+                            땅에 있는 상태에서는 절대 엄폐물을 바닥으로 인정하지 않는다.
+                            점프해서 충분히 올라온 상태에서만 엄폐물 위를 바닥으로 인정한다.
+                        */
+                        if (testPos.y < requiredJumpHeight)
+                        {
+                            continue;
+                        }
+
+                        if (CheckCollisionCircleRec(pos2D, radius, coverRect))
+                        {
+                            if (coverHeight > floorHeight)
+                            {
+                                floorHeight = coverHeight;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    return floorHeight;
+}
 
 void DrawMap(void)
 {
-    // switch문으로 3D 오브젝트 변환
-    // 배열을 한 칸씩 읽고 3D 좌표로 변환한다.
-    // switch문으로 타일 번호에 맞는 오브젝트를 그린다.
     for (int y = 0; y < MAP_HEIGHT; y++)
     {
         for (int x = 0; x < MAP_WIDTH; x++)
         {
             Vector3 tilePos = GetTileCenterWorld(x, y);
 
-            switch (myMap[y][x])
+            switch (myNewMap[y][x])
             {
                 case TILE_WALL:
                 {
@@ -379,7 +460,6 @@ void DrawMap(void)
 
                 case TILE_COVER:
                 {
-                    // 엄폐물은 몸은 가리지만 시야는 완전히 막지 않는 높이로 설정한다.
                     float coverHeight = 0.68f * WORLD_SCALE;
 
                     tilePos.y = mapPosition.y + (coverHeight / 2.0f);
@@ -405,19 +485,19 @@ void DrawMap(void)
 
                 case TILE_DESK:
                 {
-                    DrawDesk(tilePos);
+                    
                     break;
                 }
 
                 case TILE_TABLE:
                 {
-                    DrawTable(tilePos);
+                   
                     break;
                 }
 
                 case TILE_BARREL:
                 {
-                    DrawBarrel(tilePos);
+                    
                     break;
                 }
 
@@ -458,7 +538,7 @@ void DrawMap(void)
 
                 case TILE_ITEM:
                 {
-                    DrawItemMarker(tilePos);
+                    
                     break;
                 }
 
@@ -477,11 +557,27 @@ void DrawMap(void)
     }
 }
 
+// 湲곗〈 ? 肄붾뱶?먯꽌 MapRender()瑜??몄텧?섍퀬 ?덉쓣 媛?μ꽦???덉뼱???좎??쒕떎.
+// ?ㅼ젣 ?뚮뜑留곸? DrawMap()?쇰줈 ?듭씪?쒕떎.
+void MapRender(void)
+{
+    Vector3 floorCenter = {
+        mapPosition.x + (MAP_WIDTH * WORLD_SCALE) / 2.0f,
+        mapPosition.y,
+        mapPosition.z + (MAP_HEIGHT * WORLD_SCALE) / 2.0f
+    };
+
+    DrawPlane(
+        floorCenter,
+        (Vector2){ MAP_WIDTH * WORLD_SCALE, MAP_HEIGHT * WORLD_SCALE },
+        DARKGRAY
+    );
+
+    DrawMap();
+}
+
 static void DrawWolfWall(int x, int y, Vector3 tilePos, Color baseColor, Color panelColor, Color trimColor)
 {
-    // DrawWolfWall() 벽 표현
-    // 회색 큐브 벽이 너무 밋밋해서 개선한 부분이다.
-    // 벽의 기본색, 패널색, 테두리색을 따로 설정한다.
     float wallHeight = 3.5f * WORLD_SCALE;
     float panelHeight = 2.55f * WORLD_SCALE;
     float panelWidth = 0.82f * WORLD_SCALE;
@@ -545,8 +641,6 @@ static void DrawWolfWall(int x, int y, Vector3 tilePos, Color baseColor, Color p
 
 static void DrawDesk(Vector3 tilePos)
 {
-    // 정적 오브젝트 구현
-    // 책상을 별도 함수로 구현한다.
     Vector3 topPos = tilePos;
     topPos.y = mapPosition.y + 1.0f;
 
@@ -566,7 +660,6 @@ static void DrawDesk(Vector3 tilePos)
 
 static void DrawTable(Vector3 tilePos)
 {
-    // 테이블을 별도 함수로 구현한다.
     Vector3 topPos = tilePos;
     topPos.y = mapPosition.y + 1.0f;
 
@@ -582,7 +675,6 @@ static void DrawTable(Vector3 tilePos)
 
 static void DrawBarrel(Vector3 tilePos)
 {
-    // 드럼통을 별도 함수로 구현한다.
     Vector3 barrelPos = tilePos;
     barrelPos.y = mapPosition.y + 0.8f;
 
@@ -597,28 +689,42 @@ static void DrawBarrel(Vector3 tilePos)
 
 static void DrawLamp(Vector3 tilePos)
 {
-    // 램프를 별도 함수로 구현한다.
     Vector3 basePos = tilePos;
     basePos.y = mapPosition.y + 0.35f;
 
-    DrawCylinder(basePos, 0.15f * WORLD_SCALE, 0.15f * WORLD_SCALE, 0.7f * WORLD_SCALE, 12, DARKGRAY);
+    // 램프 받침: 진한 초록색
+    DrawCylinder(
+        basePos,
+        0.15f * WORLD_SCALE,
+        0.15f * WORLD_SCALE,
+        0.7f * WORLD_SCALE,
+        12,
+        DARKGREEN
+    );
 
     Vector3 polePos = tilePos;
     polePos.y = mapPosition.y + 1.2f;
 
-    DrawCylinder(polePos, 0.07f * WORLD_SCALE, 0.07f * WORLD_SCALE, 1.6f * WORLD_SCALE, 12, GRAY);
+    // 램프 기둥: 초록색
+    DrawCylinder(
+        polePos,
+        0.07f * WORLD_SCALE,
+        0.07f * WORLD_SCALE,
+        1.6f * WORLD_SCALE,
+        12,
+        GREEN
+    );
 
     Vector3 lightPos = tilePos;
     lightPos.y = mapPosition.y + 2.2f;
 
+    // 불빛은 그대로 노란색 유지
     DrawSphere(lightPos, 0.25f * WORLD_SCALE, YELLOW);
     DrawSphereWires(lightPos, 0.25f * WORLD_SCALE, 12, 12, GOLD);
 }
 
 static void DrawEnemySpawnMarker(Vector3 tilePos)
 {
-    // 적 스폰 위치를 표시하는 마커이다.
-    // 실제 적 AI나 공격 로직은 이 함수가 아니라 적 담당 코드에서 연결해야 한다.
     tilePos.y = mapPosition.y + 0.08f;
 
     DrawCube(tilePos, WORLD_SCALE * 0.7f, 0.12f, WORLD_SCALE * 0.7f, RED);
@@ -632,7 +738,6 @@ static void DrawEnemySpawnMarker(Vector3 tilePos)
 
 static void DrawItemMarker(Vector3 tilePos)
 {
-    // 아이템 위치를 표시하는 마커이다.
     tilePos.y = mapPosition.y + 0.25f;
 
     DrawCube(tilePos, WORLD_SCALE * 0.35f, WORLD_SCALE * 0.35f, WORLD_SCALE * 0.35f, GOLD);
@@ -641,7 +746,6 @@ static void DrawItemMarker(Vector3 tilePos)
 
 static void DrawStartMarker(Vector3 tilePos)
 {
-    // 플레이어 시작 위치를 표시하는 마커이다.
     tilePos.y = mapPosition.y + 0.06f;
 
     DrawCube(tilePos, WORLD_SCALE * 0.8f, 0.08f, WORLD_SCALE * 0.8f, GREEN);
@@ -650,7 +754,6 @@ static void DrawStartMarker(Vector3 tilePos)
 
 void DrawMiniMap(Vector3 playerPosition)
 {
-    // 2D 미니맵 레이더
     int scale = 8;
     int minimapX = GetScreenWidth() - (MAP_WIDTH * scale) - 20;
     int minimapY = 20;
@@ -661,7 +764,7 @@ void DrawMiniMap(Vector3 playerPosition)
     {
         for (int x = 0; x < MAP_WIDTH; x++)
         {
-            int tile = myMap[y][x];
+            int tile = myNewMap[y][x];
             Color color = BLANK;
 
             if (tile == TILE_WALL) color = DARKGRAY;
@@ -690,14 +793,13 @@ void DrawMiniMap(Vector3 playerPosition)
         }
     }
 
-    // 이것은 맵의 테두리라고 볼 수 있다.
     DrawRectangleLines(minimapX, minimapY, MAP_WIDTH * scale, MAP_HEIGHT * scale, GREEN);
 
-    // 미니맵 위 플레이어 위치이다.
     int playerCellX = (int)((playerPosition.x - mapPosition.x) / WORLD_SCALE);
     int playerCellY = (int)((playerPosition.z - mapPosition.z) / WORLD_SCALE);
 
-    if (playerCellX >= 0 && playerCellX < MAP_WIDTH && playerCellY >= 0 && playerCellY < MAP_HEIGHT)
+    if (playerCellX >= 0 && playerCellX < MAP_WIDTH && playerCellX < MAP_WIDTH &&
+        playerCellY >= 0 && playerCellY < MAP_HEIGHT)
     {
         DrawRectangle(minimapX + playerCellX * scale, minimapY + playerCellY * scale, scale, scale, LIME);
     }

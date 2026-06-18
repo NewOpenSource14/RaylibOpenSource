@@ -14,12 +14,22 @@ FetchContent_MakeAvailable(raylib)
 
 add_executable(${PROJECT_NAME}
     src/main.c
-    src/mapDesign.c
-    src/userInterface.c
-    src/shootingLogic.c
+    src/gameLoop.c
 
-    enemy/enemy.c
-    enemy/fireball.c
+    src/map/map_update.c
+
+    src/enemy/enemy.c
+    src/enemy/close_enemy.c
+    src/enemy/boss.c
+    src/enemy/fireball.c
+    src/enemy/enemyManager.c
+
+    src/other/camera.c
+
+    src/player/userInterface.c
+    src/player/shootingLogic.c
+    src/player/basic_player.c
+    src/other/gameLogic.c
 )
 
 if(WIN32)
