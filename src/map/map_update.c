@@ -207,41 +207,49 @@ bool CheckMapCollision(Vector3 testPos, float radius)
                 if (x >= 0 && x < MAP_WIDTH)
                 {
                     int tileType = myNewMap[y][x];
-                    bool solid = IsBlockingTile(tileType);
 
-                    if (solid)
+                    if (!IsBlockingTile(tileType))
                     {
-                        float rectX = mapPosition.x + x * WORLD_SCALE;
-                        float rectZ = mapPosition.z + y * WORLD_SCALE;
-                        float rectW = WORLD_SCALE;
-                        float rectH = WORLD_SCALE;
+                        continue;
+                    }
 
-                        if (tileType == TILE_COVER)
+                    float rectX = mapPosition.x + x * WORLD_SCALE;
+                    float rectZ = mapPosition.z + y * WORLD_SCALE;
+                    float rectW = WORLD_SCALE;
+                    float rectH = WORLD_SCALE;
+
+                    if (tileType == TILE_COVER)
+                    {
+                        rectW = WORLD_SCALE * 0.82f;
+                        rectH = WORLD_SCALE * 0.82f;
+
+                        rectX += (WORLD_SCALE - rectW) / 2.0f;
+                        rectZ += (WORLD_SCALE - rectH) / 2.0f;
+
+                        /*
+                            엄폐물 높이.
+                            플레이어가 이 높이 근처까지 점프했을 때만
+                            엄폐물 위로 진입 가능하게 한다.
+                        */
+                        float coverHeight = 0.68f * WORLD_SCALE;
+                        float requiredJumpHeight = coverHeight - 0.25f;
+
+                        if (testPos.y >= requiredJumpHeight)
                         {
-                            float jumpableHeight = 0.50f * WORLD_SCALE;
-
-                            if (testPos.y > jumpableHeight)
-                            {
-                                continue;
-                            }
-
-                            rectW = WORLD_SCALE * 0.82f;
-                            rectH = WORLD_SCALE * 0.82f;
-                            rectX += (WORLD_SCALE - rectW) / 2.0f;
-                            rectZ += (WORLD_SCALE - rectH) / 2.0f;
+                            continue;
                         }
+                    }
 
-                        Rectangle wallRect = {
-                            rectX,
-                            rectZ,
-                            rectW,
-                            rectH
-                        };
+                    Rectangle objectRect = {
+                        rectX,
+                        rectZ,
+                        rectW,
+                        rectH
+                    };
 
-                        if (CheckCollisionCircleRec(pos2D, radius, wallRect))
-                        {
-                            return true;
-                        }
+                    if (CheckCollisionCircleRec(pos2D, radius, objectRect))
+                    {
+                        return true;
                     }
                 }
             }
@@ -250,7 +258,6 @@ bool CheckMapCollision(Vector3 testPos, float radius)
 
     return false;
 }
-
 float GetMapFloorHeight(Vector3 testPos, float radius)
 {
     float floorHeight = 0.0f;
@@ -288,10 +295,21 @@ float GetMapFloorHeight(Vector3 testPos, float radius)
                             rectH
                         };
 
+                        float coverHeight = 0.68f * WORLD_SCALE;
+                        float requiredJumpHeight = coverHeight - 0.25f;
+
+                        /*
+                            핵심:
+                            땅에 있는 상태에서는 절대 엄폐물을 바닥으로 인정하지 않는다.
+                            점프해서 충분히 올라온 상태에서만 엄폐물 위를 바닥으로 인정한다.
+                        */
+                        if (testPos.y < requiredJumpHeight)
+                        {
+                            continue;
+                        }
+
                         if (CheckCollisionCircleRec(pos2D, radius, coverRect))
                         {
-                            float coverHeight = 0.68f * WORLD_SCALE;
-
                             if (coverHeight > floorHeight)
                             {
                                 floorHeight = coverHeight;
@@ -467,19 +485,19 @@ void DrawMap(void)
 
                 case TILE_DESK:
                 {
-                    DrawDesk(tilePos);
+                    
                     break;
                 }
 
                 case TILE_TABLE:
                 {
-                    DrawTable(tilePos);
+                   
                     break;
                 }
 
                 case TILE_BARREL:
                 {
-                    DrawBarrel(tilePos);
+                    
                     break;
                 }
 
@@ -520,7 +538,7 @@ void DrawMap(void)
 
                 case TILE_ITEM:
                 {
-                    DrawItemMarker(tilePos);
+                    
                     break;
                 }
 
@@ -674,16 +692,33 @@ static void DrawLamp(Vector3 tilePos)
     Vector3 basePos = tilePos;
     basePos.y = mapPosition.y + 0.35f;
 
-    DrawCylinder(basePos, 0.15f * WORLD_SCALE, 0.15f * WORLD_SCALE, 0.7f * WORLD_SCALE, 12, DARKGRAY);
+    // 램프 받침: 진한 초록색
+    DrawCylinder(
+        basePos,
+        0.15f * WORLD_SCALE,
+        0.15f * WORLD_SCALE,
+        0.7f * WORLD_SCALE,
+        12,
+        DARKGREEN
+    );
 
     Vector3 polePos = tilePos;
     polePos.y = mapPosition.y + 1.2f;
 
-    DrawCylinder(polePos, 0.07f * WORLD_SCALE, 0.07f * WORLD_SCALE, 1.6f * WORLD_SCALE, 12, GRAY);
+    // 램프 기둥: 초록색
+    DrawCylinder(
+        polePos,
+        0.07f * WORLD_SCALE,
+        0.07f * WORLD_SCALE,
+        1.6f * WORLD_SCALE,
+        12,
+        GREEN
+    );
 
     Vector3 lightPos = tilePos;
     lightPos.y = mapPosition.y + 2.2f;
 
+    // 불빛은 그대로 노란색 유지
     DrawSphere(lightPos, 0.25f * WORLD_SCALE, YELLOW);
     DrawSphereWires(lightPos, 0.25f * WORLD_SCALE, 12, 12, GOLD);
 }
