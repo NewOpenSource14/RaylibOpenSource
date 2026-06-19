@@ -50,7 +50,7 @@ void SpawnEnemyAtRandomPoint(void)
             }
         }
     }
-    if (totalKilledEnemies >= 1 && !isBossSpawned)
+    if (totalKilledEnemies >= 10 && !isBossSpawned)
     {
         int centerRow = 9;
         int centerCol = 14;
